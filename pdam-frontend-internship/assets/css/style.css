@@ -1,0 +1,32 @@
+body {
+    font-family: 'Satoshi', sans-serif;
+}
+
+@keyframes loading-bar {
+    0% {
+        left: -100%;
+        width: 30%;
+    }
+    50% {
+        left: 50%;
+        width: 50%;
+    }
+    100% {
+        left: 100%;
+        width: 30%;
+    }
+}
+
+.animate-loading {
+    animation: loading-bar 1.5s infinite ease-in-out;
+}
+
+/* sembunyikan scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE & Edge */
+    scrollbar-width: none;    /* Firefox */
+  }
