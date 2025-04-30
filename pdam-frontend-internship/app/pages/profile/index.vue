@@ -148,11 +148,11 @@ const handleFileUpload = async (event: any) => {
                             <span class="mb-2 text-sm text-gray-500 dark:text-gray-400">{{ me.email
                                 }}</span>
                             <span
-                                class="px-3 mb-2  text-xs w-fit font-semibold rounded-full  bg-yellow-100  border border-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                class="px-3 mb-2  text-xs w-fit font-semibold rounded-md  bg-yellow-100  border border-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
                                 {{ me.role === 'intern' ? 'Magang' : 'Penelitian' }}
                             </span>
                             <span v-if="me.role === 'intern' || me.role === 'researcher'"
-                                class="px-3  text-center text-xs w-fit font-semibold rounded-full  bg-yellow-100  border border-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                class="px-3  text-center text-xs w-fit font-semibold rounded-md  bg-yellow-100  border border-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
                                 Mentor <br>{{ me.document.mentor_name }} <br> {{ me.document.mentor_id }} </span>
 
                         </div>
@@ -240,11 +240,14 @@ const handleFileUpload = async (event: any) => {
                                     <a :href="`${config.public.storage}/storage/${me.document.application_letter}`"
                                         target="_blank" class="text-blue-600 underline text-sm">Surat Pengantar</a>
                                     <br>
-                                    <a :href="`${config.public.storage}/storage/${me.document.accepted_letter}`"
-                                        target="_blank" class="text-blue-600 underline text-sm">Surat Penerimaan</a>
+                                    <a :href="`${config.public.storage}/storage/${me.document.accepted_letter?.path}`"
+                                        target="_blank" class="text-blue-600 underline text-sm">Surat Balasan</a>
+                                    <br>
+                                    <a :href="`${config.public.storage}/storage/${me.document.field_letter?.path}`"
+                                        target="_blank" class="text-blue-600 underline text-sm">Surat Bidang</a>
                                     <br>
                                     <a v-if="me.document.work_certificate"
-                                        :href="`${config.public.storage}/storage/${me.document.work_certificate}`"
+                                        :href="`${config.public.storage}/storage/${me.document.work_certificate?.path}`"
                                         target="_blank" class="text-blue-600 underline text-sm">Sertifikat Kerja</a>
                                 </DetailRow>
                             </div>

@@ -6,6 +6,10 @@ import type {
   ApiResponseSingle,
 } from "~~/types/types";
 
+interface Purpose {
+  name: string;
+  status: 'active' | 'inactive';
+}
 export interface Signature { 
   id: string;
   user_id: string;
@@ -13,7 +17,7 @@ export interface Signature {
   rank_group: string
   position: string
   nik: string
-  purposes: object
+  purposes: Purpose[]
   status: 'active' | 'inactive' 
 } 
 
@@ -69,6 +73,25 @@ export function useSignature() {
     } catch (err) {
       console.error("Error fetching by id:", err);
       return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  async function actionSync() {
+    loading.value = true;
+    try {
+      const data = await customFetch<ApiResponseAction>(
+        `${apiBase}/signatures/sync`,
+        {
+          method: "POST",
+          headers,
+        }
+      );
+
+      return data;
+    } catch (err: any) {
+      throw new Error(err.data?.message || "Gagal menyimpan data");
     } finally {
       loading.value = false;
     }
@@ -151,6 +174,7 @@ export function useSignature() {
     create,
     update,
     destroy, 
+    actionSync,
     errorsValBack,
     loading,
     errorMessage,

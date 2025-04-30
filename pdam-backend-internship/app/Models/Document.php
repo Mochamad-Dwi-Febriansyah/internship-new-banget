@@ -24,6 +24,7 @@ class Document extends Model
         'identity_photo',
         'application_letter',
         'accepted_letter',
+        'field_letter',
         'start_date',
         'end_date',
         'work_certificate',
@@ -33,6 +34,9 @@ class Document extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'accepted_letter' => 'array',
+        'field_letter' => 'array',
+        'work_certificate' => 'array',
     ];
 
     protected static function boot()

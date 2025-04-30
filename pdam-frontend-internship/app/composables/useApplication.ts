@@ -49,6 +49,7 @@ export interface DocumentItem {
   identity_photo: string;
   application_letter: string;
   accepted_letter: string | null;
+  field_letter: string | null; 
   start_date: string;
   end_date: string;
   work_certificate: string;
@@ -177,12 +178,36 @@ export function useApplications() {
   
         return data
       } catch (err: any) {
-          console.log("err dat",err.data.errors)
+          // console.log("err dat",err.data.errors)
         const errData = err?.data
         if (errData?.errors) {
           errorsValBack.value = errData.errors
         }
-        console.error('Error updateing aspect:', err)
+        // console.error('Error updateing aspect:', err)
+        throw new Error(errData?.message || 'Gagal menyimpan data')
+      } finally {
+        loading.value = false
+      }
+    }
+    async function fieldLetter(id: string | number, payload: FormData) {
+      loading.value = true
+      errorsValBack.value = {}
+      payload.append('_method', 'PUT')   
+      try {
+        const data = await customFetch<ApiResponseAction>(`${apiBase}/applications/${id}/field-letter`, {
+          method: 'POST',
+          headers,
+          body: payload,
+        })
+  
+        return data
+      } catch (err: any) {
+          // console.log("err dat",err.data.errors)
+        const errData = err?.data
+        if (errData?.errors) {
+          errorsValBack.value = errData.errors
+        }
+        // console.error('Error updateing aspect:', err)
         throw new Error(errData?.message || 'Gagal menyimpan data')
       } finally {
         loading.value = false
@@ -281,6 +306,7 @@ export function useApplications() {
     updateStatusAndMentorApplication,
     submissionReceipt,
     exportWorkCertificate,
+    fieldLetter,
     errors,
     loading,
     errorMessage,

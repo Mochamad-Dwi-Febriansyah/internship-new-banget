@@ -28,7 +28,7 @@ const router = useRouter()
 const config = useRuntimeConfig()
 const currentPage = ref(Number(route.query.page) || 1)
 const { can, permissions } = useAuth()
-const { getApplications, getApplicationById,submissionReceipt, updateStatusAndMentorApplication, errorsValBack, loading } = useApplications()
+const { getApplications, getApplicationById,submissionReceipt, updateStatusAndMentorApplication,fieldLetter, errorsValBack, loading } = useApplications()
 const { getList } = useEmployee()
 
 // fetch employee
@@ -229,7 +229,7 @@ const { value: endDateFieldAcceptedLetter } = useField<string>('end_date_FAL')
 const openAcceptedLetter = async (data: DocumentItem) => {
     idDocumentFieldAcceptedLetter.value = data.id,
     userIdFieldAcceptedLetter.value = data.user_id,
-        nameFieldAcceptedLetter.value = data.user.name
+    nameFieldAcceptedLetter.value = data.user.name
     nisnNpmNimFieldAcceptedLetter.value = data.user.nisn_npm_nim
     schoolUniversityNameFieldAcceptedLetter.value = data.school_uni.school_university_name
     schoolMajorFieldAcceptedLetter.value = data.school_uni.school_major || ''
@@ -253,6 +253,7 @@ const formPreview = computed(() => ({
 
     nama: nameFieldAcceptedLetter.value,
     nisn_npm_nim_npp: nisnNpmNimFieldAcceptedLetter.value,
+    jurusan_sekolah: schoolMajorFieldAcceptedLetter.value,
     program_studi_universitas: universityProgramStudyFieldAcceptedLetter.value,
     tanggalMulai: startDateFieldAcceptedLetter.value,
     tanggalSelesai: endDateFieldAcceptedLetter.value
@@ -335,7 +336,153 @@ const continueAcceptedLetterSubmission = () => {
         pendingAcceptedLetterFormValues = null
         showFormPassphraseModal.value = false
     }
+    if (pendingFieldLetterFormValues) {
+        // console.log("cok", pendingFieldLetterFormValues)
+        submitFieldLetterForm(pendingFieldLetterFormValues)
+        pendingFieldLetterFormValues = null
+        showFormPassphraseModal.value = false
+    }
 }
+
+// Field letter
+const showFormFieldLetterModal = ref(false)
+const modalFieldLetterTitle = 'Kirim Surat Bidang' 
+
+const SubmitSchemaFieldLetter = toTypedSchema(object({
+    // number_letter_FAL: string().required('Nomor surat wajib diisi'),   
+    // recipient_FAL: string().required('Kepada wajib diisi'), 
+    // recipient_address_FAL: string().required('Alamat kepada wajib diisi'), 
+    // recipient_date_FAL: date().required('Tanggal surat wajib diisi'),
+
+    // id: string().required('ID wajib diisi'), 
+    user_idFFL: string().required('User wajib dipilih'),
+    name_FFL: string().required('Nama wajib diisi'),
+    nisn_npm_nim_FFL: string().required('NISN/NPM/NIM wajib diisi'),
+    school_university_name_FFL: string().required('Nama sekolah/universitas wajib diisi'),
+    school_major_FFL: string(),
+    university_faculty_FFL: string(),
+    university_program_study_FFL: string(),
+    date_letter_FFL: date().required('Tanggal surat wajib diisi'),
+    start_date_FFL: date().required('Tanggal mulai wajib diisi'),
+    end_date_FFL: date().required('Tanggal selesai wajib diisi'),
+}))
+
+const { handleSubmit: handleSubmitFieldLetter, resetForm: resetFormFieldLetter, errors: errorsFieldLetter } = useForm({
+    validationSchema: SubmitSchemaFieldLetter,
+})
+const { value: numberLetterFieldFieldLetter } = useField<string>('number_letter_FFL')  
+const { value: recipientFieldFieldLetter } = useField<string>('recipient_FFL')
+const { value: recipientAddressFieldFieldLetter } = useField<string>('recipient_address_FFL')
+const { value: recipientDateFieldFieldLetter } = useField<string>('recipient_date_FFL')
+
+const { value: idDocumentFieldFieldLetter } = useField<string>('idFFL')
+const { value: userIdFieldFieldLetter } = useField<string>('user_idFFL')
+const { value: nameFieldFieldLetter } = useField<string>('name_FFL')
+const { value: nisnNpmNimFieldFieldLetter } = useField<string>('nisn_npm_nim_FFL')
+const { value: schoolUniversityNameFieldFieldLetter } = useField<string>('school_university_name_FFL')
+const { value: schoolMajorFieldFieldLetter } = useField<string>('school_major_FFL')
+const { value: universityFacultyFieldFieldLetter } = useField<string>('university_faculty_FFL')
+const { value: universityProgramStudyFieldFieldLetter } = useField<string>('university_program_study_FFL')
+const { value: dateLetterFieldFieldLetter } = useField<string>('date_letter_FFL')
+const { value: startDateFieldFieldLetter } = useField<string>('start_date_FFL')
+const { value: endDateFieldFieldLetter } = useField<string>('end_date_FFL')
+
+const openFieldLetter = async (data: DocumentItem) => {
+    // console.log("data", data)
+    idDocumentFieldFieldLetter.value = data.id,
+    userIdFieldFieldLetter.value = data.user_id,
+    nameFieldFieldLetter.value = data.user.name
+    nisnNpmNimFieldFieldLetter.value = data.user.nisn_npm_nim
+    schoolUniversityNameFieldFieldLetter.value = data.school_uni.school_university_name
+    schoolMajorFieldFieldLetter.value = data.school_uni.school_major || ''
+    universityFacultyFieldFieldLetter.value = data.school_uni.university_faculty || ''
+    universityProgramStudyFieldFieldLetter.value = data.school_uni.university_program_study || ''
+    dateLetterFieldFieldLetter.value = formatDateNoWeekday(new Date())
+    startDateFieldFieldLetter.value = formatDateID(data.start_date)
+    endDateFieldFieldLetter.value = formatDateID(data.end_date)
+    showFormFieldLetterModal.value = true
+}
+
+const formPreviewFieldLetter = computed(() => ({
+    nomor_surat: numberLetterFieldFieldLetter.value, 
+    kepada: recipientFieldFieldLetter.value,
+    alamat_kepada: recipientAddressFieldFieldLetter.value,
+    tanggalSurat: formatDateID(recipientDateFieldFieldLetter.value),
+
+    nama: nameFieldFieldLetter.value,
+    nisn_npm_nim_npp: nisnNpmNimFieldFieldLetter.value,
+    jurusan_sekolah: schoolMajorFieldFieldLetter.value,
+    program_studi_universitas: universityProgramStudyFieldFieldLetter.value,
+    tanggalMulai: startDateFieldFieldLetter.value,
+    tanggalSelesai: endDateFieldFieldLetter.value,
+    now_date: dayjs().format('dddd, D MMMM YYYY')
+}))
+
+interface FieldLetterFormValues {
+    id_FFL: string
+    user_idFFL: string;
+    name_FFL: string;
+    nisn_npm_nim_FFL: string;
+    school_university_name_FFL: string;
+    school_major_FFL?: string;
+    university_faculty_FFL?: string;
+    university_program_study_FFL?: string;
+    date_letter_FFL: string | Date;
+    start_date_FFL: string | Date;
+    end_date_FFL: string | Date;
+    number_letter_FFL?: string; 
+    recipient_FFL?: string;
+    recipient_address_FFL?: string;
+    recipient_date_FFL?: string | Date;
+}
+
+let pendingFieldLetterFormValues: FieldLetterFormValues | null = null
+ 
+const submitFieldLetterForm = async (values: any) => {  
+    if (!PassphraseField.value) {
+        pendingFieldLetterFormValues = values
+        showFormPassphraseModal.value = true
+        return
+    }
+    // console.log("values" , values)
+
+    const formData = new FormData()
+    formData.append('passphrase', String(PassphraseField.value))
+    formData.append('user_id', userIdFieldFieldLetter.value)
+    formData.append('name', nameFieldFieldLetter.value)
+    formData.append('nisn_npm_nim', nisnNpmNimFieldFieldLetter.value)
+    formData.append('school_university_name', schoolUniversityNameFieldFieldLetter.value)
+    formData.append('school_major', schoolMajorFieldFieldLetter.value)
+    formData.append('university_faculty', universityFacultyFieldFieldLetter.value)
+    formData.append('university_program_study', universityProgramStudyFieldFieldLetter.value)
+    formData.append('date_document', dateLetterFieldFieldLetter.value)
+    formData.append('start_date', dayjs(startDateFieldFieldLetter.value).format('YYYY-MM-DD'))
+    formData.append('end_date', dayjs(endDateFieldFieldLetter.value).format('YYYY-MM-DD'))
+
+    formData.append('number_document', numberLetterFieldFieldLetter.value)  
+    formData.append('recipient', recipientFieldFieldLetter.value) 
+    formData.append('recipient_address', recipientAddressFieldFieldLetter.value) 
+    formData.append('recipient_date', dayjs(recipientDateFieldFieldLetter.value).format('YYYY-MM-DD')) 
+ 
+ 
+    // Object.entries(values).forEach(([key, val]) => {
+    //     if (val !== null && val !== undefined) {
+    //         formData.append(key, val.toString())
+    //     }
+    // })
+
+    try {
+        const response = await fieldLetter(idDocumentFieldFieldLetter.value, formData)
+
+        addNotification('success', response.message)
+        // TODO: Kirim formData ke API di sini
+        showFormFieldLetterModal.value = false
+        await fetchApplications()
+    } catch (error: any) {
+        addNotification('error', error.message)
+        // console.error('Submit error:', error)
+    }
+} 
 
 </script>
 
@@ -460,7 +607,7 @@ const continueAcceptedLetterSubmission = () => {
                                         </div>
                                         <Field name="id" type="hidden" id="user_id" :value="item.id" />
 
-                                        <button
+                                        <button :disabled="pendingUpdateId === item.id"
                                             class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs w-full sm:w-auto px-3 py-1 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
                                             <Icon v-if="pendingUpdateId === item.id" name="codex:loader"
                                                 class="text-xl align-middle" />
@@ -471,7 +618,7 @@ const continueAcceptedLetterSubmission = () => {
                                         <Button v-if="!item.accepted_letter" size="sm" variant="default" @click="openAcceptedLetter(item)">
                                             Kirim surat balasan
                                         </Button> 
-                                        <Button size="sm" variant="default">
+                                        <Button  v-if="!item.field_letter" size="sm" variant="default" @click="openFieldLetter(item)">
                                             Kirim surat bidang
                                         </Button>
                                     </div>
@@ -542,7 +689,7 @@ const continueAcceptedLetterSubmission = () => {
                     </div>
                 </BaseModal>
 
-                <!-- surat terima -->
+                <!-- surat balasan -->
                 <BaseModal v-model="showFormAcceptedLetterModal" :title="modalAcceptedLetterTitle" size="lg">
                     <div class="flex flex-col md:flex-row gap-4 max-h-[calc(100vh-116px)] items-start">
                         <Form :submit="handleSubmit(submitAcceptedLetterForm)"
@@ -615,6 +762,71 @@ const continueAcceptedLetterSubmission = () => {
                         <div class="w-full md:w-2/3 max-h-[calc(100vh-110px)] overflow-y-auto scrollbar-hide">
                             <PreviewLetterReceipt :form="formPreview"
                                 :formattedTanggalKepada="startDateFieldAcceptedLetter" :scale="zoomScale" />
+                        </div>
+                    </div>
+                </BaseModal>
+
+                 <!-- surat bidang -->
+                 <BaseModal v-model="showFormFieldLetterModal" :title="modalFieldLetterTitle" size="lg">
+                    <div class="flex flex-col md:flex-row gap-4 max-h-[calc(100vh-116px)] items-start">
+                        <Form :submit="handleSubmitFieldLetter(submitFieldLetterForm)"
+                            class="w-full  md:w-1/3 max-h-[calc(100vh-110px)] overflow-y-auto scrollbar-hide">
+                            <BaseInput name="id_FFL" type="hidden" v-model="idDocumentFieldFieldLetter" /> 
+                            <BaseInput name="user_idFFL" type="hidden" v-model="userIdFieldFieldLetter" />
+                            <div class="grid gap-6 mb-6 md:grid-cols-1 dark:text-gray-900">
+
+                                <BaseInput label="Nomor Surat" name="number_letter_FFL" type="text"
+                                    v-model="numberLetterFieldFieldLetter" :errors="errorsFieldLetter" /> 
+
+                                    <BaseInput label="Kepada" name="recipient_FFL" v-model="recipientFieldFieldLetter"
+                                    type="text" :errors="errorsFieldLetter" />
+
+                                <BaseInput label="Alamat Kepada" name="recipient_address_FFL"
+                                    v-model="recipientAddressFieldFieldLetter" type="text" :errors="errorsFieldLetter" />
+
+                                <BaseInput label="Tanggal Kepada" name="recipient_date_FFL"
+                                    v-model="recipientDateFieldFieldLetter" type="date" :errors="errorsFieldLetter" />
+
+                                <BaseInput label="Nama" name="name_FFL" type="text" v-model="nameFieldFieldLetter"
+                                    :disabled="true" required :errors="errorsFieldLetter" :errorsValBack="errorsValBack" />
+                                <BaseInput label="Nisn/NPM/NIM" name="nisn_npm_nim_FFL" type="text"
+                                    v-model="nisnNpmNimFieldFieldLetter" :disabled="true" required :errors="errorsFieldLetter"
+                                    :errorsValBack="errorsValBack" />
+                                <BaseInput label="Nama Sekolah/Universitas" name="school_university_name_FFL"
+                                    type="text" v-model="schoolUniversityNameFieldFieldLetter" :disabled="true"
+                                    required :errors="errorsFieldLetter" :errorsValBack="errorsValBack" />
+                                <BaseInput label="Jurusan Sekolah" name="school_major_FFL" type="text"
+                                    v-model="schoolMajorFieldFieldLetter" :disabled="true" required :errors="errorsFieldLetter"
+                                    :errorsValBack="errorsValBack" />
+                                <BaseInput label="Fakultas" name="university_faculty_FFL" type="text"
+                                    v-model="universityFacultyFieldFieldLetter" :disabled="true" required
+                                    :errors="errorsFieldLetter" :errorsValBack="errorsValBack" />
+                                <BaseInput label="Progam Studi" name="university_program_study_FFL" type="text"
+                                    v-model="universityProgramStudyFieldFieldLetter" :disabled="true" required
+                                    :errors="errorsFieldLetter" :errorsValBack="errorsValBack" />
+                                <BaseInput label="Tanggal Surat" name="date_letter_FFL" type="text"
+                                    v-model="dateLetterFieldFieldLetter" :disabled="true" required :errors="errorsFieldLetter"
+                                    :errorsValBack="errorsValBack" />
+                                <BaseInput label="Tanggal Mulai Magang" name="start_date_FFL" type="text"
+                                    v-model="startDateFieldFieldLetter" :disabled="true" required :errors="errorsFieldLetter"
+                                    :errorsValBack="errorsValBack" />
+                                <BaseInput label="Tanggal Selesai Magang" name="end_date_FFL" type="text"
+                                    v-model="endDateFieldFieldLetter" :disabled="true" required :errors="errorsFieldLetter"
+                                    :errorsValBack="errorsValBack" />
+                            </div>
+                            <div class="flex justify-end gap-2 w-full">
+                                <Button type="button" variant="red" @click="showFormFieldLetterModal = false">
+                                    Batal
+                                </Button>
+                                <Button type="submit" :disabled="loading">
+                                    <Icon v-if="loading" name="codex:loader" class="text-xl align-middle" />
+                                    <span v-else>Kirim</span>
+                                </Button>
+                            </div>
+                        </Form>
+                        <div class="w-full md:w-2/3 max-h-[calc(100vh-110px)] overflow-y-auto scrollbar-hide">
+                            <PreviewLetterField :form="formPreviewFieldLetter"
+                                :formattedTanggalKepada="startDateFieldFieldLetter" :scale="zoomScale" />
                         </div>
                     </div>
                 </BaseModal>

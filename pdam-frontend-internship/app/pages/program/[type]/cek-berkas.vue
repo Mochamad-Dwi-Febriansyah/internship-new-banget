@@ -1,20 +1,34 @@
 <script setup lang="ts">
 const route = useRoute();
-const tipe = route.params.type; 
-const { checkApplicationStatus, errors, loading, errorMessage, } = useApplications(); // Import the checkApplicationStatus function from your composable
+const tipe = route.params.type;  
+const registrationNumber = Array.isArray(route.query.registration_number) ? route.query.registration_number[0]  : route.query.registration_number
+const { checkApplicationStatus, errors: errorsValBack, loading, errorMessage, } = useApplications(); // Import the checkApplicationStatus function from your composable
 import { object, string } from 'yup'
 import { toTypedSchema } from '@vee-validate/yup'
 import { useNotification } from '~~/stores/notification'
+import { getIconName, getStatusLabel } from '~~/utils/formatStatus';
+import { getStatusVariant } from '~~/utils/statusLabel';
 
 const { addNotification } = useNotification()
+ 
 
-const schema = toTypedSchema(
-  object({
-    registration_number: string().required('Nomor pengajuan wajib diisi'),
-  })
-)
+const SubmitSchemaCekBerkas = toTypedSchema(object({
+  registration_number: string().required('Nomor registrasi wajib diisi'),
+}))
+const { handleSubmit, resetForm, errors } = useForm({
+    validationSchema: SubmitSchemaCekBerkas,
+})
+
+const { value: registrationNumberField } = useField<string>('registration_number')
+onMounted(() => {
+  if (registrationNumber) {
+    registrationNumberField.value = registrationNumber
+  }
+})
 
 const result = ref<null | Record<string, any>>(null)
+const showDetailModal = ref(false)
+const modalDetailTitle = 'Cek Pengajuan Berkas'
 
 const onSubmit = async (values: any) => {
 result.value = null 
@@ -22,6 +36,7 @@ result.value = null
     const data = await checkApplicationStatus(values.registration_number)
     // console.log('Data:', data)
     result.value = data?.data ?? null;
+    showDetailModal.value = true
   } catch (e: any) {
     addNotification('error', e.message);
     // console.log(e.message) 
@@ -43,10 +58,10 @@ const statusMapping: { [key: string]: string } = {
                     <h2 class="text-3xl font-bold text-gray-800 mb-10 text-center md:text-left dark:text-white">
                         Cek Pengajuan Berkas
                     </h2>
-                    <Form @submit="onSubmit" :validation-schema="schema" >
-                        <!-- No Pengajuan --> 
-                        <BaseInput label="Nomor Pengajuan" name="registration_number" :errors="errors" type="text"
-                            placeholder="Masukkan no pengajuan" required /> 
+                    <Form :submit="handleSubmit(onSubmit)"  >
+                        <!-- No Pengajuan -->  
+                        <BaseInput label="Nomor Pengajuan" name="registration_number" v-model="registrationNumberField"  :errors="errors" :errorsValBack="errorsValBack" type="text"
+                            placeholder="Masukkan no pengajuan" /> 
                             <p v-if="errorMessage" class="text-red-500 text-sm">{{ errorMessage }}</p>
                         <!-- Tombol Cek -->
                         <div class="mt-6 flex justify-center">
@@ -57,16 +72,19 @@ const statusMapping: { [key: string]: string } = {
                         </div>
                     </Form> 
                 </div>
-                <div  v-if="result" class="w-full mx-auto bg-green-100 border border-green-300 rounded-lg p-6 mt-6" 
-                    :class="{
-                    'bg-yellow-100 border-yellow-300': result.document_status === 'pending',
-                    'bg-green-100 border-green-300': result.document_status === 'approved',
-                    'bg-red-100 border-red-300': result.document_status === 'rejected'}">
-                    <p class="text-gray-700"><strong>No Registrasi :</strong> {{ result.registration_number }}</p>
-                    <p class="text-gray-700"><strong>Nama :</strong> {{ result.user.name }}</p>
-                    <p class="text-gray-700"><strong>Status :</strong> {{ statusMapping[result.document_status as keyof typeof statusMapping]   }}</p>
+                <BaseModal v-model="showDetailModal" :title="modalDetailTitle">
+            <SkeletonsDetailSkeleton v-if="loading" :repeat="3" />
 
-                </div>
+            <div v-else class="space-y-4" v-if="result">
+              <DetailRow label="No Registrasi">{{ result.registration_number  }}</DetailRow>
+              <DetailRow label="Nama">{{ result.user.name  }}</DetailRow>
+              <DetailRow label="Status">
+                <Button :variant="getStatusVariant(result.document_status)" size="sm">
+                  <Icon :name="getIconName(result.document_status)" class="w-4 h-4" /> {{ getStatusLabel(result.document_status)  }}
+                </Button>
+              </DetailRow>
+            </div>
+            </BaseModal> 
             </div>
         </section>
     </NuxtLayout>

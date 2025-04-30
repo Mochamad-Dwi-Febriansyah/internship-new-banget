@@ -27,10 +27,12 @@ class SignatureRequest extends FormRequest
      */
     public function rules(): array
     {
-        $id = $this->route('signatures');
+        $id = $this->route('signature');
+        // dd($id);
+        $isUpdate = $id !== null;
         return [
             'user_id' => [
-                'required',
+                ...($isUpdate ? [] : ['required']),
                 'max:255',
                 Rule::unique('signatures', 'user_id')->ignore($id),
             ],
@@ -44,7 +46,8 @@ class SignatureRequest extends FormRequest
             'position' =>'sometimes|string',
             'department' =>'sometimes|string',
             'purposes' => 'sometimes|array',
-            'purposes.*' => 'in:receipt_letter,division_letter,certificate,work_certificate,daily_report',
+            'purposes.*.name' => 'in:receipt_letter,division_letter,certificate,work_certificate,daily_report,field_letter',
+            'purposes.*.status' => 'required|in:active,inactive',
             'status' => 'sometimes|in:active,inactive',
         ];
     }

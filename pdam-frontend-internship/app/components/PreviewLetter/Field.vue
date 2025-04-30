@@ -1,4 +1,5 @@
 <script setup>
+import { formatDateID } from '~~/utils/date';
 defineProps({
     form: Object,
     formattedTanggalKepada: String,
@@ -42,7 +43,7 @@ const baseHeight = 1248
 
                 <div class="mx-8">
                     <!-- Judul -->
-                    <p class="text-center font-bold underline text-lg mb-4">SURAT KETERANGAN PENERIMAAN MAGANG</p>
+                    <p class="text-center font-bold underline text-lg mb-4">SURAT PENGANTAR</p>
 
                     <!-- Nomor & Tujuan -->
                     <div class="flex justify-between mb-8 text-md">
@@ -50,17 +51,10 @@ const baseHeight = 1248
                             <div class="h-[20px]"></div>
                             <div class="flex leading-none"><span class="w-24">Nomor</span><span
                                     class="w-2">:</span><span class="flex-1">{{ form.nomor_surat || '.......' }}</span>
-                            </div>
-                            <div class="flex leading-none"><span class="w-24">Sifat</span><span
-                                    class="w-2">:</span><span class="flex-1">{{ form.sifat || '.......' }}</span></div>
-                            <div class="flex leading-none"><span class="w-24">Lampiran</span><span
-                                    class="w-2">:</span><span class="flex-1">{{ form.lampiran || '.......' }}</span>
-                            </div>
-                            <div class="flex leading-none"><span class="w-24">Hal</span><span class="w-2">:</span><span
-                                    class="flex-1">Surat Keterangan Penerimaan</span></div>
+                            </div> 
                         </div>
 
-                        <div class="flex flex-col font-bold w-1/2 pl-4 space-y-1 text-left">
+                        <div class="flex flex-col w-1/2 pl-4 space-y-1 text-left">
                             <p>Semarang, {{ form.tanggalSurat || '.......' }}</p>
                             <div class="h-[65px]"></div>
                             <p>K e p a d a :</p>
@@ -104,34 +98,32 @@ const baseHeight = 1248
                                         </tr>
                                     </tbody>
                                 </table>
-                                Untuk keterangan lebih lanjut dapat menghubungi <span class="font-bold underline">Bagian
-                                    Kepegawaian.</span>
+                                Untuk melakukan PKL di <i>Perumda Air Minum Tirta Moedal Kota Semarang</i> alokasi waktu tanggal {{ form.tanggalMulai ||
+                                    '.......' }} sampai dengan {{ form.tanggalSelesai || '.......' }}.
                             </li>
-                            <li>&nbsp;&nbsp;&nbsp; Demikian informasi ini kami sampaikan. Atas perhatian dan kerjasama
-                                Bapak/Ibu, kami ucapkan terima kasih.</li>
+                            <li>&nbsp;&nbsp;&nbsp; Demikian kami sampaikan, atas kerjasamanya diucapkan terima kasih.</li>
                         </ol>
                     </div>
                 </div>
 
                 <!-- TTD -->
-                <div class="w-fit text-center float-right mx-8">
-                    <p>An. Direksi Perusahaan Umum Daerah Air Minum</p>
-                    <p class="-mt-2">Tirta Moedal Kota Semarang</p>
-                    <p class="-mt-2">Direktur Umum</p>
-                    <p class="-mt-2">Ub</p>
-                    <p class="mb-12 -mt-2">Kepala Bagian Kepegawaian</p>
-                    #
-                    <!-- <p class="font-bold underline">Sundariyah, S.E.</p>
-                    <p class="-mt-2">Staf Madya I</p>
-                    <p class="-mt-2">NPP. 6908384</p> -->
+                 <div class="flex flex-row items-end justify-end"> 
+                     <div class="w-fit text-center  mx-8 ">
+                         <p class="mb-2">Semarang, {{ formatDateID(form.now_date) }}</p>
+                         <p class="mb-12 -mt-2">Kepala Bagian Kepegawaian</p>  
+                         #
+                         <!-- <p class="font-bold underline">Sundariyah, S.E.</p>
+                         <p class="-mt-2">Staf Madya I</p>
+                         <p class="-mt-2">NPP. 6908384</p> -->
+                     </div>
+                 </div>
                 </div>
-            </div>
-            <!-- <div class="footer absolute bottom-0 left-0 right-0 text-center text-xs px-4 py-2 bg-white">
+                <!-- <div class="footer absolute bottom-0 left-0 right-0 text-center text-xs px-4 py-2 bg-white">
                     Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik <br> yang diterbitkan oleh
                     Balai Besar Sertifikasi Elektronik (BSrE), Badan Siber dan Sandi Negara
                 </div> -->
+            </div>
         </div>
-    </div>
 </template>
 
 <style scoped>

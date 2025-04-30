@@ -150,6 +150,7 @@ const SubmitSchema = toTypedSchema(object({
 
 const { handleSubmit, resetForm, errors } = useForm({
   validationSchema: SubmitSchema,
+  validateOnMount: true,
 })
 
 const { value: titleField } = useField<string>('title')
@@ -168,11 +169,22 @@ const openEditForm = (dayliReport: DayliReport) => {
   titleField.value = dayliReport.title ?? '',
   reportField.value = dayliReport.report ?? '' ,
   resultField.value = dayliReport.result ?? '' ,  
-form.value.id = dayliReport.id
+    form.value.id = dayliReport.id
   showFormModal.value = true
 }
 
-const submitForm = async (values: any, { resetForm }: { resetForm: () => void }) => {
+watch(showFormModal, (val) => {
+  if (!val) {
+      resetForm({ values: {} })             // Reset semua field yang terdaftar di useForm
+    titleField.value = ''   // Reset field manual
+    reportField.value = ''
+    resultField.value = ''
+    form.value = {}         // Reset objek form kalau kamu perlu
+    isEdit.value = false    // Reset mode edit (opsional)
+  }
+})
+
+const submitForm = async (values: any) => {
   const formData = new FormData()
   if (!isEdit.value) { 
     formData.append('attendance_id', form.value.attendance_id || '')
@@ -189,9 +201,9 @@ const submitForm = async (values: any, { resetForm }: { resetForm: () => void })
       : await createDayliReport(formData)
 
     addNotification('success', response.message)
-
-    await fetchAttendance()
+    resetForm()
     showFormModal.value = false
+    await fetchAttendance()
   } catch (error: any) {
     addNotification('error', error.message)
     // console.error('Submit error:', error)

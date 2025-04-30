@@ -21,7 +21,11 @@ class SignatureController extends Controller
     public function index()
     {
 
-        $signatures = Signature::paginate(20);
+        // $signatures = Signature::paginate(20);
+        $signatures = Signature::query()
+            ->orderByRaw(
+                "JSON_CONTAINS(JSON_EXTRACT(purposes, '$[*].status'), '\"active\"') DESC"
+            )->paginate(20);
 
         LogHelper::log('signatures_index', 'Retrieved the list of signatures successfully', null, ['total_signatures' => $signatures->total()]);
 
@@ -39,6 +43,34 @@ class SignatureController extends Controller
             $signature = Signature::create(
                 $signaturerequest->validated()
             );
+            $activePurposes = collect($signature->purposes)
+                ->where('status', 'active')
+                ->pluck('name')
+                ->toArray();
+
+            if (!empty($activePurposes)) {
+                $otherSignatures = Signature::where('id', '!=', $signature->id)->get();
+
+                foreach ($otherSignatures as $otherSignature) {
+                    $purposes = $otherSignature->purposes;
+                    $updated = false;
+
+                    foreach ($purposes as &$p) {
+                        if (in_array($p['name'], $activePurposes) && ($p['status'] ?? null) === 'active') {
+                            $p['status'] = 'inactive';
+                            $updated = true;
+                        }
+                    }
+
+                    // Kalau memang ada perubahan, baru update
+                    if ($updated) {
+                        $otherSignature->update([
+                            'purposes' => $purposes
+                        ]);
+                    }
+                }
+            }
+            // dd($otherSignature);
 
             DB::commit();
 
@@ -92,6 +124,34 @@ class SignatureController extends Controller
 
             if (!empty($signatureData)) {
                 $signature->fill($signatureData)->save();
+            }
+
+            $activePurposes = collect($signature->purposes)
+                ->where('status', 'active')
+                ->pluck('name')
+                ->toArray();
+
+            if (!empty($activePurposes)) {
+                $otherSignatures = Signature::where('id', '!=', $signature->id)->get();
+
+                foreach ($otherSignatures as $otherSignature) {
+                    $purposes = $otherSignature->purposes;
+                    $updated = false;
+
+                    foreach ($purposes as &$p) {
+                        if (in_array($p['name'], $activePurposes) && ($p['status'] ?? null) === 'active') {
+                            $p['status'] = 'inactive';
+                            $updated = true;
+                        }
+                    }
+
+                    // Kalau memang ada perubahan, baru update
+                    if ($updated) {
+                        $otherSignature->update([
+                            'purposes' => $purposes
+                        ]);
+                    }
+                }
             }
 
             DB::commit();
@@ -149,7 +209,10 @@ class SignatureController extends Controller
 
         // Ambil data signature dari SSO
         $ssoUsers = $this->getAllUserDataFromSSO($token); // Misalnya, ini mengambil data dari API atau service SSO
-        // dd($ssoUsers['data']);
+        // dd($ssoUsers);
+        if (empty($ssoUsers) || empty($ssoUsers['data']) || !is_array($ssoUsers['data'])) {
+            return $this->errorResponse(null, 'Tidak ada data user dari SSO.', Response::HTTP_NOT_FOUND);
+        }
         DB::beginTransaction();
 
         try {
@@ -187,17 +250,17 @@ class SignatureController extends Controller
     public function getAllUserDataFromSSO($token)
     {
         // Misalnya menggunakan HTTP client seperti Guzzle untuk mengambil data dari API SSO
-        try { 
+        try {
             // Gantilah dengan URL endpoint API yang sesuai dengan server SSO Anda
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $token
-            ])->get(env('SSO_SERVER_URL') . '/api/client/user/all-pegawai'); 
-    
+            ])->get(config('services.sso.server_url') . '/api/client/user/all-pegawai');
+
             // Periksa jika response sukses
             if ($response->successful()) {
                 // Ambil data pengguna dari response JSON
                 $ssoUsers = $response->json();
-    
+
                 // Kembalikan data pengguna yang diterima
                 return $ssoUsers;
             } else {
@@ -210,5 +273,4 @@ class SignatureController extends Controller
             return []; // Mengembalikan array kosong jika terjadi kesalahan
         }
     }
-    
 }

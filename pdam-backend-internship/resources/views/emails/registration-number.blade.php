@@ -9,7 +9,7 @@ Berikut adalah Nomor Registrasi Anda:
 
 Silakan gunakan kredensial di atas untuk memantau perkembangan berkas.
 
-@component('mail::button', ['url' => 'http://localhost:3000/program/' . $program_type . '/cek-berkas'])
+@component('mail::button', ['url' => 'http://localhost:3000/program/' . $program_type . '/cek-berkas?registration_number=' . $registration_number])
 Cek Sekarang
 @endcomponent
 

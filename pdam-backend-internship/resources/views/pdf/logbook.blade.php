@@ -193,6 +193,19 @@
             .whitespace-nowrap{
                 white-space: nowrap
             }
+
+            .footer {
+    position: fixed;
+    bottom: 0; /* posisi dari bawah halaman */
+    left: 0;
+    right: 0;
+    height: 50px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .i{
+    font-style: italic;
+  }
         </style>
     </head>
     <body>
@@ -340,6 +353,9 @@
         
     
         </div>
+
+        <div class="footer i">Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik <br>
+            yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), Badan Siber dan Sandi Negara</div>
     
     </body>
     </html> 

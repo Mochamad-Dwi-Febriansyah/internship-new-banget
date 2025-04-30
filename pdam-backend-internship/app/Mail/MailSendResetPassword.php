@@ -9,20 +9,19 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class MailSendRegistrationNumber extends Mailable
+class MailSendResetPassword extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $registration_number;
-    public $program_type;
+    public $token;
+
     /**
      * Create a new message instance.
      */
-    public function __construct($registration_number, $program_type)
+    public function __construct($token)
     {
-        $this->registration_number = $registration_number;
-        $this->program_type = $program_type;
-    } 
+        $this->token = $token;
+    }
 
     /**
      * Get the message envelope.
@@ -30,7 +29,7 @@ class MailSendRegistrationNumber extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Mail Send Registration Number',
+            subject: 'Mail Send Reset Password',
         );
     }
 
@@ -40,10 +39,9 @@ class MailSendRegistrationNumber extends Mailable
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.registration_number',
+            view: 'emails.reset-password',
             with: [
-                'registration-number' => $this->registration_number, 
-                'program_type' => $this->program_type, 
+                'resetUrl' => env('FRONTEND_URL', 'http://localhost:3000') . "/reset-password?token=" . $this->token
             ],
         );
     }

@@ -9,20 +9,22 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class MailSendRegistrationNumber extends Mailable
+class MailSendCredentialsLogin extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $registration_number;
-    public $program_type;
+    public $email;
+    public $password;
+
     /**
      * Create a new message instance.
      */
-    public function __construct($registration_number, $program_type)
+    public function __construct($email, $password)
     {
-        $this->registration_number = $registration_number;
-        $this->program_type = $program_type;
-    } 
+        $this->email = $email;
+        $this->password = $password;
+    }
+
 
     /**
      * Get the message envelope.
@@ -30,7 +32,7 @@ class MailSendRegistrationNumber extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Mail Send Registration Number',
+            subject: 'Mail Send Credentials Login',
         );
     }
 
@@ -40,10 +42,10 @@ class MailSendRegistrationNumber extends Mailable
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.registration_number',
+            markdown: 'emails.credentials',
             with: [
-                'registration-number' => $this->registration_number, 
-                'program_type' => $this->program_type, 
+                'email' => $this->email,
+                'password' => $this->password,
             ],
         );
     }
