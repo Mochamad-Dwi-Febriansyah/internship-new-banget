@@ -563,7 +563,7 @@ const continueWorkCertificateSubmission = () => {
                                 <Button type="button" variant="red" @click="showWorkFormCertificateModal = false">
                                     Batal
                                 </Button>
-                                <Button type="submit" :disabled="loading">
+                                <Button type="submit" :disabled="loadingApplication">
                                     <Icon v-if="loadingApplication" name="codex:loader" class="text-xl align-middle" />
                                     <span v-else>Kirim</span>
                                 </Button>

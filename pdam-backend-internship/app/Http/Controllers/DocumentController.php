@@ -10,6 +10,9 @@ use App\Models\Document;
 use App\Models\Signature;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -190,18 +193,16 @@ class DocumentController extends Controller
             return $this->errorResponse(null, 'Document not found', Response::HTTP_NOT_FOUND);
         }
         DB::beginTransaction();
-        try { 
-            $signature = Signature::where('status', 'active')
-            ->whereJsonContains('purposes', 'work_certificate')
-            ->first();
-// dd($signature);
-           
-
+        try {  
             $data = [
                 'document' => $document,
                 'number_letter' => $documentRequest->number_letter,
-            ]; 
-            $data['signature'] = $signature;
+            ];  
+
+            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'work_certificate', 'status'=>'active'])->first();
+
+            // dd($data['signature']);
+
             if (empty($document->schoolUni->school_major)) {
                 $data['internship_status'] = 'university';
             } elseif (!empty($document->university_faculty) && !empty($document->university_program_study)) {
@@ -217,35 +218,143 @@ class DocumentController extends Controller
 
         // return $pdf->download();
         // Simpan file ke storage/app/public/documents/work_certificate
-        $pdfFilePath = FileHelper::savePdfToStorage($pdf, 'documents/work_certificate', 'public');
-        
-        // Cek passphrase
-        if (empty($documentRequest->passphrase)) {
-            return $this->errorResponse(null, 'Gagal menandatangani dokumen. Passphrase belum tersedia.', Response::HTTP_UNPROCESSABLE_ENTITY);
-        }
-        
-        // Ambil nama file dari path
-        $fileName = basename($pdfFilePath);
-        
-        // Buat URL publik (pastikan `php artisan storage:link` sudah dijalankan)
-        $fileUrl = Storage::url("documents/work_certificate/{$fileName}");
-        $document->work_certificate = $fileUrl;
-        $document->save();
-        
-        return $this->successResponse([
-            'file_name' => $fileName,
-            'file_url' => asset($fileUrl),
-        ], 'Daily reports list retrieved successfully', Response::HTTP_OK);
 
-        return $this->successResponse($fileContent , 'Daily reports list retrieved successfully', Response::HTTP_OK);
+        // here
+        $pdfFileName = 'work_certificate_' . time() . '.pdf';
+
+        // Pastikan folder ada
+        $pdfFolder = storage_path('app/public/documents/work_certificate/'. $pdfFileName);
+        if (!file_exists(storage_path('app/public/documents/work_certificate'))) {
+            mkdir(storage_path('app/public/documents/work_certificate'), 0777, true);
+        }
+
+        // Simpan PDF ke local storage 
+        file_put_contents($pdfFolder, $pdf->output());
+        
+        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/work_certificate/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
+
+        $idLetter = (string) Str::uuid(); // Generate UUID for the file
+        // Tanda tangani dengan BSrE
+        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/work_certificate/' . $pdfFileName)), $pdfFileName, '1234567890123456', $documentRequest->passphrase, $idLetter, $type = 'work_certificate');
+
+        // Path file signed yang disimpan
+        // $signedPdfFileName = 'signed_' . $pdfFileName;
+        // $signedRelativePath = 'documents/documents/work_certificate/' . $signedPdfFileName;
+
+        // Simpan path ke database
+        // $document->update([
+        //     'work_certificate' => $signedPdfResponse->original
+        // ]);
+
+        $document->update([
+            'work_certificate' => [
+                'id' => $idLetter,
+                'path' => 'documents/work_certificate/'.$signedPdfResponse->original,
+            ]
+        ]); 
+
+        // $pdfFilePath = FileHelper::savePdfToStorage($pdf, 'documents/work_certificate', 'public');
+        
+        // // Cek passphrase
+        // if (empty($documentRequest->passphrase)) {
+        //     return $this->errorResponse(null, 'Gagal menandatangani dokumen. Passphrase belum tersedia.', Response::HTTP_UNPROCESSABLE_ENTITY);
+        // }
+        
+        // // Ambil nama file dari path
+        // $fileName = basename($pdfFilePath);
+        
+        // // Buat URL publik (pastikan `php artisan storage:link` sudah dijalankan)
+        // $fileUrl = Storage::url("documents/work_certificate/{$fileName}");
+        // $document->work_certificate = "documents/work_certificate/".$fileName;
+        // $document->save();
+        // dd($document)  ;
+        
+        // return $this->successResponse([
+        //     'document' => $document->user,
+        //     'file_name' => $fileName,
+        //     'file_url' => asset($fileUrl),
+        // ], 'Export work certificate list retrieved successfully', Response::HTTP_OK);
+
+        DB::commit();
+
+        return $this->successResponse(null , 'Export work certificate list retrieved successfully', Response::HTTP_OK);
 
 
         }catch (\Throwable $th) {
             DB::rollBack();
-            LogHelper::log('document_destroy', 'Failed to delete document', null, [], 'error');
-            return $this->errorResponse($th->getMessage(), 'An error occurred while deleting the document', Response::HTTP_INTERNAL_SERVER_ERROR);
+            LogHelper::log('document_destroy', 'Failed to export work certificate document', null, [], 'error');
+            return $this->errorResponse($th->getMessage(), 'An error occurred while export work certificate the document', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
+    }
+
+    private function signWithBsre($pdfPath, $pdfFileName, $nik, $passphrase, $idLetter, $type){
+        
+        $client = new Client();
+        // $bsreUrl = 'http://103.101.52.82/api/sign/pdf';
+        $bsreUrl = config('bsre.url').'/api/sign/pdf'; 
+        try { 
+            
+            $response = $client->request('POST', $bsreUrl, [
+                'headers' => [
+                    'Authorization' => 'Basic ' . base64_encode(config('bsre.username') . ':' . config('bsre.password')),
+                    'Accept' => 'application/json',
+                ], 
+                'multipart' => [
+                    [
+                        'name' => 'file',
+                        'contents' => fopen($pdfPath, 'r'),
+                        'filename' => $pdfFileName
+                    ],
+                    [
+                        'name' => 'nik',
+                        'contents' => $nik
+                    ],
+                    [
+                        'name' => 'passphrase',
+                        'contents' => $passphrase
+                    ],
+                    [
+                        'name' => 'tampilan',
+                        'contents' => 'visible'
+                    ],
+                    [
+                        'name' => 'linkQR',
+                        'contents' => config('bsre.linkqr').'?id='.$idLetter
+                    ],
+                    [
+                        'name' => 'tag_koordinat',
+                        'contents' => '#'
+                    ],
+                    [
+                        'name' => 'width',
+                        'contents' => '100'
+                    ],
+                    [
+                        'name' => 'height',
+                        'contents' => '100'
+                    ],
+                ],
+
+            ]); 
+            $signedPdfPath = storage_path('app/public/documents/'.$type.'/signed_' . $pdfFileName);
+            file_put_contents($signedPdfPath, $response->getBody()->getContents());
+            return response()->json('signed_'.$pdfFileName); 
+        } catch (RequestException $e) {
+            $responseBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null;
+
+            LogHelper::log('bsre_signing_error', 'BSrE signing request failed', null, [
+                'message' => $e->getMessage(),
+                'response' => $responseBody,
+            ], 'error');
+        
+            // Buat respons error yang lebih ramah
+            throw new HttpResponseException(response()->json([
+                'message' => 'Gagal menandatangani dokumen dengan BSrE',
+                'error' => $e->getMessage(),
+                'details' => $responseBody,
+            ], 500));
+        }
     }
 
 

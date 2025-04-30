@@ -11,6 +11,7 @@ use App\Http\Controllers\FinalReportController;
 use App\Http\Controllers\SchoolUniController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\StatisticController;
+use App\Http\Controllers\TTEController;
 use App\Http\Controllers\UserController;
 use App\Models\Attendance;
 use Illuminate\Http\Request;
@@ -25,6 +26,9 @@ Route::prefix('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('check.jwt.auth'); // auth.logout
     Route::get('/me', [AuthController::class, 'me'])->middleware('check.jwt.auth'); // auth.me
     Route::post('/current-session', [AuthController::class, 'currentSession'])->middleware('check.jwt.auth'); // auth.current-session
+
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']); //auth.forgot-password
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']); // auth.reset-password
 });
 
 Route::middleware('check.jwt.auth')->prefix('auth')->group(function () {
@@ -44,6 +48,10 @@ Route::get('/applications/{id}/status', [ApplicationController::class, 'checkSta
 
 Route::put('/applications/{id}/update-status-mentor', [ApplicationController::class, 'updateStatusAndMentor']); // documents.update-status-mentor
 Route::put('/applications/{id}/submission-receipt', [ApplicationController::class, 'submissionReceipt']); // application.submission-receipt
+
+Route::put('/applications/{id}/field-letter', [ApplicationController::class, 'fieldLetter']); // application.field-letter
+
+Route::post('/cek-keabsahan', [TTEController::class, 'cekKeabsahan']); // auth.login
 
 Route::group(['middleware' => 'check.sso.token'], function () {  
     Route::get('/mentor/mentee', [ApplicationController::class, 'getMenteesByMentor']);
@@ -69,11 +77,12 @@ Route::group(['middleware' => 'check.sso.token'], function () {
     // final-reports.hr-verification
     // Hanya bisa diakses oleh HR (setelah mentor approved)
 
+    Route::post('/signatures/sync', [SignatureController::class, 'syncFromSSO']);
+    // signatures.sync
+    
     Route::apiResource('/signatures', SignatureController::class);
     // signatures.view, signatures.show, signatures.create, signatures.update, signatures.delete
     
-    Route::post('/signatures/sync', [SignatureController::class, 'syncFromSSO']);
-    // signatures.sync
 });
 
 Route::group(['middleware' => 'check.jwt.auth'], function () {

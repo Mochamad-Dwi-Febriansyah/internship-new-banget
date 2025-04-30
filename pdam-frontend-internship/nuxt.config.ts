@@ -54,6 +54,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE,
+      apiBaseTTE: process.env.NUXT_PUBLIC_API_TTE,
       storage: process.env.NUXT_PUBLIC_STORAGE,
       apiBaseSso: process.env.NUXT_PUBLIC_SSO,
       hwid: process.env.NUXT_PUBLIC_HWID,

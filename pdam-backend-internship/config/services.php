@@ -33,13 +33,9 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+    ], 
+    'sso' => [
+        'server_url' => env('SSO_SERVER_URL'),
     ],
-
-    'bsre' => [
-        'url' => env('BSRE_API_URL'),
-        'username' => env('BSRE_USERNAME'),
-        'password' => env('BSRE_PASSWORD'),
-        'linkqr' => env('BSRE_LINKQR'),
-    ]
 
 ];

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\ApiResponse;
 use App\Helpers\LogHelper;
+use App\Mail\MailSendResetPassword;
 use App\Models\Document;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -235,5 +238,61 @@ class AuthController extends Controller
             ? "User has the permission '$permission'."
             : "User does not have the permission '$permission'.";
         return $this->successResponse($result, $message, Response::HTTP_OK);
+    }
+
+    public function forgotPassword(Request $request)
+    { 
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:users,email'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        $token = Str::random(60);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $request->email],
+            ['token' => $token, 'created_at' => now()]
+        );
+
+        // Kirim email ke user
+        Mail::to($user->email)->send(new MailSendResetPassword($token));
+
+        return $this->successResponse(null, 'A password reset link has been sent to your email address.', Response::HTTP_OK); 
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'token' => 'required',
+            'password' => 'required|min:6|confirmed'
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $reset = DB::table('password_reset_tokens')->where('token', $request->token)->first();
+
+        if (!$reset) {
+            return $this->errorResponse(null, 'The reset token is invalid or has expired.', Response::HTTP_UNPROCESSABLE_ENTITY); 
+        } 
+
+        $user = User::where('email', $reset->email)->first();
+        if (!$user) {
+            return $this->errorResponse(null, 'User not found.', Response::HTTP_NOT_FOUND);  
+        }
+
+        // Update password
+        $user->update(['password' => Hash::make($request->password)]);
+
+        // Hapus token
+        DB::table('password_reset_tokens')->where('email', $reset->email)->delete();
+
+        return $this->successResponse(null, 'Your password has been successfully updated. Please log in again.', Response::HTTP_OK);  
     }
 }

@@ -38,6 +38,7 @@ class CertificateRequest extends FormRequest
                 'exists:documents,id'
             ],
             'certificate_number' => 'nullable|string|max:255|unique:certificates,certificate_number',
+            'passphrase' => 'required',
             'total_score' => 'nullable|numeric|min:0|max:100',
             'average_score' => 'nullable|numeric|min:0|max:100',
             'certificate_path' => 'nullable|string|max:500',

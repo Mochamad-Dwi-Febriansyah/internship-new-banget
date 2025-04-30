@@ -1,5 +1,5 @@
 import { useCustomFetch } from "~~/plugins/fetch-interceptor"
-import type { ApiResponseSingle } from "~~/types/types"
+import type { ApiResponseAction, ApiResponseSingle } from "~~/types/types"
 
 interface Login
 {
@@ -142,6 +142,32 @@ export const useAuth = () => {
     const can = (perm: string): boolean => {
       return Array.isArray(permissions.value) && permissions.value.includes(perm)
     }
+
+    const forgotPassword = async (payload: FormData) => {
+      try {
+        const data = await $fetch<ApiResponseAction>('/auth/forgot-password', {
+          baseURL,
+          method: 'POST',
+          body: payload,
+        })
+        return data
+      } catch (error: any) {
+        throw error?.data || error
+      }
+    }
+    
+    const resetPassword = async (payload: FormData) => {
+      try {
+        const data = await $fetch<ApiResponseAction>('/auth/reset-password', {
+          baseURL,
+          method: 'POST',
+          body: payload,
+        })
+        return data
+      } catch (error: any) {
+        throw error?.data || error
+      }
+    }
   
     return {
       user,
@@ -155,7 +181,9 @@ export const useAuth = () => {
       validateToken,
       refreshAccessToken,
       clearToken,
-      fetchPermissions
+      fetchPermissions,
+      forgotPassword,
+      resetPassword
     }
   }
   

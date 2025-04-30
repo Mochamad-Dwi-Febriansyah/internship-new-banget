@@ -159,7 +159,7 @@
                             <tr >
                                 <td class="pb-0">Jabatan</td>
                                 <td class="pb-0">:</td>
-                                <td class="pb-0">{{ $result['signature']['department'] ?? '.......' }}</td>
+                                <td class="pb-0">Kepala Bagian Kepegawaian</td>
                             </tr>
                         </table>
                     </li>
@@ -225,14 +225,20 @@
                     Tirta Moedal Kota Semarang <br>
                     Direktur Umum <br>
                     Ub <br>
-                    {{ $result['signature']['department'] ?? '.......' }} 
+                     Kepala Bagian Kepegawaian
                 </p>
             </td>
         </tr>
         <tr>
             <td width="35%"></td>
             <td class="pb-0">
-            #    
+                <br>
+                <br> 
+                #
+                <br>
+                <br>
+                <br>
+                <br>    
             </td> 
             {{-- <td class="pb-0"><img src="{{ public_path('storage/'.$result['signature']['signature']) }}" width="80"> </td>  --}}
         </tr>

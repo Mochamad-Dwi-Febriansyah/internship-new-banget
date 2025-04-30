@@ -149,6 +149,7 @@
     height: 50px;
     text-align: center;
     font-size: 12px;
+    page-break-before: always;
   }
   .i{
     font-style: italic;
@@ -191,22 +192,7 @@
                         <td class="pb-0" width="35%">Nomor</td>
                         <td class="pb-0 " width="5%">:</td>
                         <td class="pb-0">{{ $result['number_document'] ?? '.......' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="pb-0" width="35%">Sifat</td>
-                        <td class="pb-0 " width="5%">:</td>
-                        <td class="pb-0">{{ $result['nature'] ?? '.......' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="pb-0" width="35%">Lampiran</td>
-                        <td class="pb-0 " width="5%">:</td>
-                        <td class="pb-0">{{ $result['attachment'] ?? '.......' }}</td>
-                    </tr>
-                    <tr>
-                        <td class="pb-0" width="35%">Hal</td>
-                        <td class="pb-0 " width="5%">:</td>
-                        <td class="pb-0"><u><i>Kegiatan Magang</i></u></td>
-                    </tr>
+                    </tr> 
                 </table>
             </td>
             <td width="5%">
@@ -269,11 +255,11 @@
         <tr>
             <td colspan="2">
                 <ol>
-                    <li>
+                    <li>  
                         <p class="line-height12">Memperhatikan Surat {{ $result['recipient'] ?? '.......' }} Nomor : {{ $result['number_document'] ?? '.......' }} tanggal {{ $result['recipient_date'] ?? '.......' }} perihal permohonan izin magang.</p> 
                     </li>
-                    <li>
-                        <p class="line-height12">Sehubungan dengan hal tersebut diatas, bersama ini dapat kami sampaikan bahwa pada prinsipnya Perumda Air Minum Tirta Moedal Kota Semarang dapat menerima {{ $result['internship_status'] == 'mahasiswa' ? 'mahasiswa' : 'siswa' }} Saudara untuk Magang alokasi waktu tanggal {{ $result['start_date'] ?? '.......' }} sampai dengan {{ $result['end_date'] ?? '.......' }}. Adapun data mahasiswa tersebut adalah : </p> 
+                    <li>  
+                        <p class="line-height12">Sehubungan dengan hal tersebut diatas, bersama ini dapat kami sampaikan bahwa pada prinsipnya Perumda Air Minum Tirta Moedal Kota Semarang dapat menerima {{ $result['internship_status'] == 'mahasiswa' ? 'mahasiswa' : 'siswa' }} Saudara untuk Magang alokasi waktu tanggal {{ $result['start_date'] ?? '.......' }} sampai dengan {{ $result['end_date'] ?? '.......' }} dengan data sebagai berikut :</p> 
                         <table width="100%" cellspacing="0" cellpadding="5" border="0" >
                             <tr >
                                 <th class="p5 border">NO</th>
@@ -285,10 +271,10 @@
                                 <td class="p5 border text-center">1</td>
                                 <td class="p5 border">{{ $result['name'] ?? '.......' }}</td>
                                 <td class="p5 border text-center">{{ $result['nisn_npm_nim'] ?? '.......' }}</td>
-                                <td class="p5 border text-center">{{ $result['internship_status'] == 'university' ? $result['university_program_study'] :  $result['school_major'] }}</td>
+                                <td class="p5 border text-center">{{ $result['internship_status'] == 'university' ? $result['university_program_study'] :  $result['school_major'] }}</td> 
                             </tr>  
-                        </table>
-                        <p class="text-indent0 line-height12">Untuk keterangan lebih lanjut dapat menghubungi <b><u>Bagian Kepegawaian</u></b>.</p>
+                        </table> 
+                        <p class="text-indent0 line-height12">Untuk melakukan PKL di <i> Perumda Air Minum Tirta Moedal Kota Semarang </i> alokasi waktu tanggal {{ $result['start_date'] ?? '.......' }} sampai dengan {{ $result['end_date'] ?? '.......' }}. Untuk keterangan lebih lanjut dapat menghubungi.</p>
                     </li>
                     <li>
                         <p class="line-height12">Demikian informasi kami, atas perhatian dan kerjasamanya kami ucapkan terima kasih.</p> 
@@ -305,10 +291,8 @@
         <tr>
             <td width="35%"></td>
             <td class="pb-0">
-                <p>An. Direksi Perusahaan Umum Daerah Air Minum <br>
-                    Tirta Moedal Kota Semarang <br>
-                    Direktur Umum <br>
-                    Ub <br>
+                <p>Semarang, {{ \Carbon\Carbon::now()->translatedFormat('d F Y') }}</p>
+                <p> 
                     Kepala Bagian Kepegawaian
                 </p>
             </td>

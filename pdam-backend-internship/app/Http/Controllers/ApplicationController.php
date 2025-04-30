@@ -8,9 +8,11 @@ use App\Helpers\LogHelper;
 use App\Http\Requests\DocumentRequest;
 use App\Http\Requests\SchoolUniRequest;
 use App\Http\Requests\UserRequest;
+use App\Mail\MailSendCredentialsLogin;
 use App\Mail\MailSendRegistrationNumber;
 use App\Models\Document;
 use App\Models\SchoolUni;
+use App\Models\Signature;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -24,6 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
 class ApplicationController extends Controller
@@ -355,6 +358,20 @@ class ApplicationController extends Controller
             ], fn($value) => $value !== null && $value !== '');
             
             $document->update($updateData);
+
+            $userDocument = $document->user;
+            if ($request->document_status === 'accepted' && $userDocument) { 
+                $defaultPassword = Str::random(8); // Buat password acak
+                $hashedPassword = Hash::make($defaultPassword); // Hash sebelum menyimpan
+
+                // Update password di database
+                $userDocument->update([
+                    'password' => $hashedPassword,
+                    'status' => 'active',
+                ]);
+
+                Mail::to($userDocument->email)->send(new MailSendCredentialsLogin($userDocument->email, $defaultPassword));
+            }
      
             DB::commit();
 
@@ -419,44 +436,13 @@ class ApplicationController extends Controller
 
             $data = []; // Initialize the data array
         
+              // Generate PDF using updated data
+              $data = array_merge($data, $request->all());
+
             // Loop through each date field
             foreach ($dateFields as $field) {
                 if (!empty($request->$field)) {
-                    // Check if the input contains the day (e.g., "Wednesday, 12 March 2025")
-                    if (strpos($request->$field, ',') !== false) {
-                        // If there's a day, take the part after the comma
-                        $date = trim(explode(',', $request->$field)[1]);
-                    } else {
-                        // If no day, use it directly
-                        $date = trim($request->$field); // e.g., "2025-12-02"
-                    }
-        
-                    // If the format is yyyy-mm-dd (from input type="date"), parse it directly
-                    if (preg_match('/\d{4}-\d{2}-\d{2}/', $date)) {
-                        $carbonDate = Carbon::parse($date);
-                    } else {
-                        // If the format is "12 March 2025", make sure the month is converted to English for parsing
-                        $indonesianMonths = [
-                            'Januari' => 'January',
-                            'Februari' => 'February',
-                            'Maret' => 'March',
-                            'April' => 'April',
-                            'Mei' => 'May',
-                            'Juni' => 'June',
-                            'Juli' => 'July',
-                            'Agustus' => 'August',
-                            'September' => 'September',
-                            'Oktober' => 'October',
-                            'November' => 'November',
-                            'Desember' => 'December',
-                        ];
-                        $englishDate = strtr($date, $indonesianMonths); // Convert month to English
-                        $carbonDate = Carbon::createFromFormat('d F Y', $englishDate);
-                    }
-        
-                    // Set locale and format back to "d F Y"
-                    Carbon::setLocale('en');
-                    $data[$field] = $carbonDate->translatedFormat('d F Y'); // e.g., "02 December 2025"
+                    $data[$field] = $this->parseDate($request->$field);
                 } else {
                     $data[$field] = '......'; // Default if empty
                 }
@@ -474,36 +460,47 @@ class ApplicationController extends Controller
                 $data['internship_status'] = 'unknown'; // Fallback if no condition matches
             }
         
-            // Generate PDF using updated data
-            $data = array_merge($data, $request->all());
-            // dd($data);
+          
+            // dd($data); 
+            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'receipt_letter', 'status'=>'active'])->first();
+            // dd($data['signature']);
 
             $pdfContent = Pdf::loadView('pdf.submission_receipt', ['result' => $data]);
 
-        $pdfFileName = 'surat_terima_x_' . time() . '.pdf';
+            // return $pdfContent->download('submission_receipt.pdf');
+
+        $pdfFileName = 'accepted_letter_' . time() . '.pdf';
 
         // Pastikan folder ada
-        $pdfFolder = storage_path('app/public/berkas/'. $pdfFileName);
-        if (!file_exists(storage_path('app/public/berkas'))) {
-            mkdir(storage_path('app/public/berkas'), 0777, true);
+        $pdfFolder = storage_path('app/public/documents/accepted_letter/'. $pdfFileName);
+        if (!file_exists(storage_path('app/public/documents/accepted_letter'))) {
+            mkdir(storage_path('app/public/documents/accepted_letter'), 0777, true);
         }
 
         // Simpan PDF ke local storage 
         file_put_contents($pdfFolder, $pdfContent->output());
         
-        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/berkas/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
+        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
 
+        $idLetter = (string) Str::uuid(); // Generate UUID for the file
         // Tanda tangani dengan BSrE
-        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/berkas/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase);
+        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/accepted_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, $type = 'accepted_letter');
 
         // Path file signed yang disimpan
         // $signedPdfFileName = 'signed_' . $pdfFileName;
-        // $signedRelativePath = 'documents/berkas/' . $signedPdfFileName;
+        // $signedRelativePath = 'documents/documents/accepted_letter/' . $signedPdfFileName;
 
         // Simpan path ke database
+        // $document->update([
+        //     'accepted_letter' => $signedPdfResponse->original
+        // ]);
+
         $document->update([
-            'accepted_letter' => $signedPdfResponse->original
-        ]);
+            'accepted_letter' => [
+                'id' => $idLetter,
+                'path' => 'documents/accepted_letter/'.$signedPdfResponse->original,
+            ]
+        ]); 
 
 
             DB::commit();
@@ -514,20 +511,143 @@ class ApplicationController extends Controller
         // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
             DB::rollBack();
             LogHelper::log('submission_receipt_store', 'Failed to create a new submission receipt', null, [], 'error');
-            return $this->errorResponse($th->getTraceAsString(), 'An error occurred while creating the submission receipt', Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->errorResponse($th->getMessage(), 'An error occurred while creating the submission receipt', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    } 
+    
+    public function fieldLetter(Request $request, $id)
+    {
+        $document = Document::find($id);
+
+        if(!$document)
+        {
+            return $this->errorResponse(null, 'Document not found', Response::HTTP_NOT_FOUND);
+        }
+
+        if ($document->document_status != 'accepted') {
+            return $this->errorResponse(null, 'Document has not been approved', Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $submissionReceiptValidator = Validator::make($request->all(), [  
+            // 'status_berkas' => 'required',  
+            // 'status_magang' => 'required|in:mahasiswa,siswa',   
+            'name' => 'required',
+            'school_major' => 'nullable',
+            'university_program_study' => 'nullable',
+            'nisn_npm_nim' => 'required',
+            'date_document' => 'required',
+            'number_document' => 'required', 
+            'recipient' => 'required|string',
+            'recipient_address' => 'required|string',
+            'recipient_date' => 'required|date',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date',
+            'passphrase' => 'required',
+            'delivered_to' => 'sometimes|array|min:1',
+            'delivered_to.*.npp' => 'sometimes|string|exists:employees,npp',
+            'delivered_to.*.name' => 'sometimes|string',
+        ]); 
+
+        if($submissionReceiptValidator->fails())
+        {
+            return $this->errorResponse($submissionReceiptValidator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        DB::beginTransaction();
+        try {
+            $dateFields = ['date_document', 'recipient_date', 'start_date', 'end_date'];
+
+            $data = []; // Initialize the data array
+            // Generate PDF using updated data
+            $data = array_merge($data, $request->all());
+
+            // Loop through each date field
+            foreach ($dateFields as $field) {
+                if (!empty($request->$field)) {
+                    $data[$field] = $this->parseDate($request->$field);
+                } else {
+                    $data[$field] = '......'; // Default if empty
+                }
+            }
+            // dd($data);
+        
+            // Set document status
+            $data['document_status'] = $document->document_status ?? '......'; // Default if empty
+        
+            // Set internship status (student or university)
+            if (empty($document->school_major)) {
+                $data['internship_status'] = 'university';
+            } elseif (!empty($document->university_faculty) && !empty($document->university_program_study)) {
+                $data['internship_status'] = 'student';
+            } else {
+                $data['internship_status'] = 'unknown'; // Fallback if no condition matches
+            }
+        
+
+            // dd($data); 
+            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'field_letter', 'status'=>'active'])->first();
+
+            $pdfContent = Pdf::loadView('pdf.field_letter', ['result' => $data]);
+
+            // return $pdfContent->download('field_letter.pdf');
+
+        $pdfFileName = 'field_letter_' . time() . '.pdf';
+
+        // Pastikan folder ada
+        $pdfFolder = storage_path('app/public/documents/field_letter/'. $pdfFileName);
+        if (!file_exists(storage_path('app/public/documents/field_letter'))) {
+            mkdir(storage_path('app/public/documents/field_letter'), 0777, true);
+        }
+
+        // Simpan PDF ke local storage 
+        file_put_contents($pdfFolder, $pdfContent->output());
+        
+        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
+
+        $idLetter = (string) Str::uuid(); // Generate UUID for the file
+        // Tanda tangani dengan BSrE
+        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/field_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, $type='field_letter');
+
+        // Path file signed yang disimpan
+        // $signedPdfFileName = 'signed_' . $pdfFileName;
+        // $signedRelativePath = 'documents/documents/field_letter/' . $signedPdfFileName;
+
+        // Simpan path ke database
+        // $document->update([
+        //     'field_letter' => $signedPdfResponse->original
+        // ]);
+
+        $document->update([
+            'field_letter' => [
+                'id' => $idLetter,
+                'path' => 'documents/field_letter/'.$signedPdfResponse->original,
+                'delivered_to' => $request->delivered_to,
+            ]
+        ]); 
+
+
+            DB::commit();
+        
+            return response()->json(['message' => 'Field letter successfully created', 'file_path' => $signedPdfResponse->original], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+        //     'errors' => $th->getMessage(), // tampilkan error detail
+        // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
+            DB::rollBack();
+            LogHelper::log('field_letter_store', 'Failed to create a new Field letter', null, [], 'error');
+            return $this->errorResponse($th->getMessage(), 'An error occurred while creating the Field letter', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    private function signWithBsre($pdfPath, $pdfFileName, $nik, $passphrase){
+    private function signWithBsre($pdfPath, $pdfFileName, $nik, $passphrase, $idLetter, $type){
         
         $client = new Client();
         // $bsreUrl = 'http://103.101.52.82/api/sign/pdf';
-        $bsreUrl = config('services.bsre.url').'/api/sign/pdf'; 
+        $bsreUrl = config('bsre.url').'/api/sign/pdf'; 
         try { 
             
             $response = $client->request('POST', $bsreUrl, [
                 'headers' => [
-                    'Authorization' => 'Basic ' . base64_encode(config('services.bsre.username') . ':' . config('services.bsre.password')),
+                    'Authorization' => 'Basic ' . base64_encode(config('bsre.username') . ':' . config('bsre.password')),
                     'Accept' => 'application/json',
                 ], 
                 'multipart' => [
@@ -550,7 +670,7 @@ class ApplicationController extends Controller
                     ],
                     [
                         'name' => 'linkQR',
-                        'contents' => config('services.bsre.linkqr').$nik
+                        'contents' => config('bsre.linkqr').'?id='.$idLetter
                     ],
                     [
                         'name' => 'tag_koordinat',
@@ -567,7 +687,7 @@ class ApplicationController extends Controller
                 ],
 
             ]); 
-            $signedPdfPath = storage_path('app/public/berkas/signed_' . $pdfFileName);
+            $signedPdfPath = storage_path('app/public/documents/'.$type.'/signed_' . $pdfFileName);
             file_put_contents($signedPdfPath, $response->getBody()->getContents());
             return response()->json('signed_'.$pdfFileName); 
         } catch (RequestException $e) {
@@ -586,4 +706,41 @@ class ApplicationController extends Controller
             ], 500));
         }
     }
+
+    // Di dalam controller kamu
+    public function parseDate($date)
+    {
+        try {
+            // Jika tanggal sudah dalam format 'Y-m-d' (contoh: 2025-06-01), kita bisa langsung mengonversinya
+            if (preg_match('/\d{4}-\d{2}-\d{2}/', $date)) {
+                return Carbon::parse($date)->translatedFormat('d F Y'); // Mengonversi ke format "d F Y" (contoh: 01 June 2025)
+            }
+            
+            // Jika tanggal menggunakan format lainnya (seperti "12 Maret 2025"), coba parsing secara eksplisit
+            $indonesianMonths = [
+                'Januari' => 'January',
+                'Februari' => 'February',
+                'Maret' => 'March',
+                'April' => 'April',
+                'Mei' => 'May',
+                'Juni' => 'June',
+                'Juli' => 'July',
+                'Agustus' => 'August',
+                'September' => 'September',
+                'Oktober' => 'October',
+                'November' => 'November',
+                'Desember' => 'December',
+            ];
+            
+            // Mengganti nama bulan Indonesia ke dalam bahasa Inggris untuk mempermudah parsing
+            $englishDate = strtr($date, $indonesianMonths);
+            return Carbon::createFromFormat('d F Y', $englishDate)->translatedFormat('d F Y');
+        } catch (\Exception $e) {
+            // Jika terjadi error, log dan kembalikan nilai default
+            LogHelper::log('field_letter_date_parse', 'Error parsing date', null, ['error_message' => $e->getMessage()], 'error');
+            return '......'; // Nilai fallback jika terjadi error
+        }
+    }
+    
+
 }

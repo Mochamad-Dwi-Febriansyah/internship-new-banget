@@ -29,15 +29,17 @@ export function statusLabel(status: string): string {
 export function purposeLabel(purpose: any): string {
   switch (purpose) {
     case 'receipt_letter':
-      return 'Surat Tanda Terima'
+      return 'Surat Balasan'
     case 'division_letter':
       return 'Surat Divisi'
     case 'certificate':
       return 'Sertifikat'
     case 'work_certificate':
-      return 'Surat Keterangan Kerja'
+      return 'Surat Keterangan'
     case 'daily_report':
       return 'Laporan Harian'
+    case 'field_letter':
+      return 'Surat Bidang'
     default:
       return purpose
   }

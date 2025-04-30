@@ -173,13 +173,13 @@ onMounted(async () => {
                                         </div>
                                     </td>
                                     <td class="px-6 py-2">
-                                         {{ item.daily_report.title }}
+                                         {{ item.daily_report?.title }}
                                     </td>
                                     <td class="px-6 py-2">
-                                         {{ item.daily_report.report }}
+                                         {{ item.daily_report?.report }}
                                     </td>
                                     <td class="px-6 py-2">
-                                         {{ item.daily_report.result }}
+                                         {{ item.daily_report?.result }}
                                     </td>
                                     <td class="px-6 py-2">
                                         <div class="flex flex-row space-x-2  justify-center items-center"> 

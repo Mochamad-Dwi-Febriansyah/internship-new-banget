@@ -23,7 +23,7 @@ class CheckSSOToken
         // Kirim request ke SSO untuk validasi token
         $ssoResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token
-        ])->get(env('SSO_SERVER_URL') . '/api/auth/me');
+        ])->get(config('services.sso.server_url') . '/api/auth/me');
 
         if ($ssoResponse->failed()) {
             return $this->errorResponse(null, 'Invalid SSO token', Response::HTTP_UNAUTHORIZED);

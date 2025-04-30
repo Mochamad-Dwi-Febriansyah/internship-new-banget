@@ -33,7 +33,7 @@ const config = useRuntimeConfig()
 const currentPage = ref(Number(route.query.page) || 1)
 const selectedSort = ref('')
 const { can, permissions } = useAuth()
-const { getById, getList, update, create, destroy, loading, errorsValBack } = useSignature()
+const { getById, getList, update, create, destroy, actionSync, loading, errorsValBack } = useSignature()
 const { getList: getListEmployee } = useEmployee()
 
 // list
@@ -110,9 +110,10 @@ function goToPage(page: number) {
 
 // fetch employee
 const selectedMentors = ref<Record<string, { value: string; text: string } | null>>({})
-const employee = ref<ApiResponseNoPagination<Employee> | null>(null)
+const employee = ref<Employee[] | null>(null)
+
 const employeeOptions = computed(() => {
-    return (employee?.value?.data || []).map(e => ({
+    return (employee?.value || []).map(e => ({
         value: e.npp,
         text: `${e.nama} ${e.pangkat_golongan}`
     }))
@@ -123,7 +124,13 @@ const fetchEmployee = async () => {
     try {
         pendingFetchEmployee.value = true
         const result = await getListEmployee()
-        employee.value = result ?? null
+
+        const signedNppList = signatures.value?.data.data.map((s) => s.user_id) ?? []
+        // console.log(signedNppList)
+        const employeeAfterFilter = result?.data.filter((e) => !signedNppList.includes(e.npp))
+        // console.log(employeeAfterFilter)
+
+        employee.value = employeeAfterFilter ?? null
 
     } catch (error) {
         console.error('Gagal mengambil data aplikasi:', error)
@@ -132,14 +139,56 @@ const fetchEmployee = async () => {
     }
 }
 
+// field checkbox 
+const purposeField = ref([])
+const purposeOptions = [
+    { value: 'receipt_letter', text: 'Surat Balasan' },
+    // { value: 'division_letter', text: 'Surat Bagian' },
+    { value: 'certificate', text: 'Sertifikat' },
+    { value: 'work_certificate', text: 'Surat Keterangan' },
+    { value: 'daily_report', text: 'Laporan Harian' },
+    { value: 'field_letter', text: 'Surat Bidang' }
+]
+interface Purpose {
+    name: string;
+    status: 'active' | 'inactive';
+}
+const purposes = ref<Purpose[]>([]);
+
+function togglePurpose(optionValue: string) {
+    const index = purposes.value.findIndex(p => p.name === optionValue);
+    if (index === -1) {
+        // Jika tidak ada, tambahkan dengan status 'active'
+        purposes.value.push({ name: optionValue, status: 'active' });
+    } else {
+        // Jika ada, hapus dari list purposes
+        purposes.value.splice(index, 1);
+    }
+}
+
+function toggleStatus(purposeName: string) {
+    const purpose = purposes.value.find(p => p.name === purposeName);
+    if (purpose) {
+        // Toggle status antara 'active' dan 'inactive'
+        purpose.status = purpose.status === 'active' ? 'inactive' : 'active';
+    }
+}
+
+function getStatus(purposeName: string) {
+    const purpose = purposes.value.find(p => p.name === purposeName);
+    // Mengembalikan status atau 'inactive' jika tidak ditemukan
+    return purpose?.status ?? 'inactive';
+}
+
 
 // create and update
 const showFormModal = ref(false)
 const isEdit = ref(false)
 const form = ref<{ id?: string }>({})
+const idendityForEdit = ref()
 
-const { value: statusField } = useField<string>('status')
-const { value: purposeField } = useField<string>('purpose')
+// const { value: statusField } = useField<string>('status')
+// const { value: purposeField } = useField<string>('purpose')
 
 const modalFormTitle = computed(() =>
     isEdit.value ? 'Ubah tanda tangan' : 'Tambah tanda tangan'
@@ -153,6 +202,31 @@ const openCreateForm = () => {
     showFormModal.value = true
 }
 
+const openEditForm = (user: any) => {
+    isEdit.value = true
+    purposes.value = user.purposes ?? []
+    // console.log("sa", user)
+    idendityForEdit.value = user.name_snapshot + ' ' + user.rank_group
+    // statusField.value = user.status ?? 'active',
+
+    form.value.id = user.id
+    showFormModal.value = true
+}
+
+const resetAll = (resetForm?: () => void) => {
+    if (resetForm) resetForm() // reset field form VeeValidate kalau ada
+    form.value = {}
+    purposes.value = []
+    selectedMentors.value = {}
+    idendityForEdit.value = ''
+    isEdit.value = false
+}
+
+const handleCloseModal = () => {
+    resetAll()
+    showFormModal.value = false
+}
+
 const schema = toTypedSchema(object({
     // mentor_npp: string().required('Mentor wajib diisi'),
 }))
@@ -163,21 +237,15 @@ const { handleSubmit, resetForm, errors } = useForm({
 })
 
 const submitForm = async (values: any, { resetForm }: { resetForm: () => void }) => {
-    const formData = new FormData()
-    // console.log("Sa",values.status)
-    // Object.entries(values).forEach(([key, value]) => {
-    //     if (value !== undefined && value !== null) {
-    //         formData.append(key, value as string | Blob); // Handle file upload jika ada
-    //     }
-    // });
-    formData.append('purposes[]', purposeField.value);
-    formData.append('status', statusField.value);
+    const formData = new FormData() 
+    purposes.value.forEach((item, index) => {
+        formData.append(`purposes[${index}][name]`, item.name)
+        formData.append(`purposes[${index}][status]`, item.status)
+    }) 
     if (selectedMentors) {
         const mentorId = selectedMentors.value.value
-        if (mentorId && employee.value) {
-            // console.log(employee.value.data[0]?.npp)
-            // console.log("mentor", String(mentorId))
-            const foundEmployee = employee.value.data.find(emp => emp.npp === String(mentorId))
+        if (mentorId && employee.value) { 
+            const foundEmployee = employee.value.find(emp => emp.npp === String(mentorId))
             if (foundEmployee) {
                 formData.append('user_id', foundEmployee.npp);
                 formData.append('name_snapshot', foundEmployee.nama);
@@ -188,22 +256,21 @@ const submitForm = async (values: any, { resetForm }: { resetForm: () => void })
                 addNotification('error', 'Mentor tidak ditemukan di daftar employee')
             }
         }
-    }
-    for (const [key, value] of formData.entries()) {
-        console.log(`${key}:`, value)
-    }
+    } 
     try {
         const response = isEdit.value && form.value.id
             ? await update(form.value.id, formData)
             : await create(formData)
 
         addNotification('success', response.message)
-
-        await fetchSignatures()
+        resetForm()
+        purposes.value = [] // kosongkan array purposes
+        selectedMentors.value = {} // kosongkan pilihan mentor
+        employee.value = [] // opsional, kalau memang mau dikosongkan
         showFormModal.value = false
+        await fetchSignatures()
     } catch (error: any) {
-        addNotification('error', error.message)
-        // console.error('Submit error:', error)
+        addNotification('error', error.message) 
     }
 }
 
@@ -237,6 +304,18 @@ const deleteClick = async () => {
         pendingDeleteId.value = null
     }
 };
+
+// sync 
+const syncClick = async () => {
+    try {
+        const response = await actionSync()
+        console.log("dsd", response)
+        addNotification('success', response.message);
+        await fetchSignatures()
+    } catch (error: any) {
+        addNotification('error', error.message);
+    }
+};
 </script>
 
 <template>
@@ -247,6 +326,10 @@ const deleteClick = async () => {
             <div v-else class="p-3">
                 <div class="flex flex-row justify-between items-center mb-2">
                     <!-- <Button v-if="can('pdamintern.final-reports.create')" size="sm" variant="custom"></Button> -->
+                    <Button size="sm" @click="syncClick" variant="default">
+                        <Icon v-if="loading" name="codex:loader" class="text-xl align-middle" />
+                        <span v-else>Sync</span>
+                    </Button>
                     <Button size="sm" variant="custom"
                         class="text-white bg-green-700 hover:bg-green-800 focus:ring-green-300 text-xs px-4 py-1 rounded-md flex justify-center"
                         @click="openCreateForm">
@@ -280,7 +363,11 @@ const deleteClick = async () => {
                                 <td class="px-6 py-2">
                                     <ul>
                                         <li v-for="(purpose, i) in item.purposes" :key="i">
-                                            {{ purposeLabel(purpose) }}
+                                            <span class="font-medium">{{ purposeLabel(purpose.name) }}</span> -
+                                            <span
+                                                :class="purpose.status === 'active' ? 'text-green-600' : 'text-red-600'">
+                                                {{ statusLabel(purpose.status) }}
+                                            </span>
                                         </li>
                                     </ul>
                                 </td>
@@ -293,12 +380,12 @@ const deleteClick = async () => {
                                             <Icon name="material-symbols:visibility-outline-rounded"
                                                 class="text-xl align-middle" />
                                         </Button> -->
-                                        <!-- 
+
                                         <Button size="noP" variant="custom" class="text-blue-600 hover:text-blue-800"
                                             :tooltip="true" tooltipText="Edit" @click="openEditForm(item)">
                                             <Icon name="material-symbols:edit-square-outline"
                                                 class="text-xl align-middle" />
-                                        </Button>-->
+                                        </Button>
 
                                         <Button size="noP" variant="custom" class="text-red-600 hover:text-red-800"
                                             :tooltip="true" tooltipText="Hapus" @click="confirmDelete(item.id)">
@@ -308,16 +395,19 @@ const deleteClick = async () => {
                                 </td>
                             </tr>
                         </BaseTable>
+
                     </div>
                 </div>
             </div>
             <!-- create & update -->
-            <BaseModal v-model="showFormModal" :title="modalFormTitle" :overlap=false>
+            <BaseModal v-model="showFormModal" :title="modalFormTitle" :overlap=false @close="handleCloseModal">
                 <!-- {{ pendingFetchEmployee }} -->
                 <SkeletonsDetailSkeleton v-if="pendingFetchEmployee" :repeat="3" />
                 <Form v-else :submit="handleSubmit(submitForm)" class="space-y-3">
-                    <div class="grid gap-6 mb-6 md:grid-cols-1 dark:text-gray-900">
-
+                    <div v-if="!isEdit" class="">
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                            Identitas
+                        </label>
                         <Field name="mentor_npp" v-slot="{ field }">
                             <client-only>
                                 <Multiselect v-model="selectedMentors" :options="employeeOptions"
@@ -328,21 +418,41 @@ const deleteClick = async () => {
                             </client-only>
                         </Field>
                         <ErrorMessage name="mentor_npp" class="text-red-500 text-sm" />
+                    </div> 
+                    <div v-if="isEdit">
+                        {{ idendityForEdit }}
+                    </div>
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                            Untuk
+                        </label> 
+                        <div class="mt-2 space-y-2">
+                            <div v-for="option in purposeOptions" :key="option.value"
+                                class="flex items-center space-x-4">
+                                <input type="checkbox" :id="option.value"
+                                    :checked="purposes.some(p => p.name === option.value)"
+                                    @change="togglePurpose(option.value)" class="form-checkbox text-blue-600" />
+                                <label :for="option.value" class="text-sm text-gray-900 dark:text-white">{{ option.text }}</label>
+
+                                <template v-if="purposes.some(p => p.name === option.value)">
+                                    <button type="button" @click="toggleStatus(option.value)"
+                                        class="px-2 py-1 text-xs rounded" :class="{
+                                            'bg-green-200 text-green-800': getStatus(option.value) === 'active',
+                                            'bg-red-200 text-red-800': getStatus(option.value) === 'inactive'
+                                        }">
+                                        {{ getStatus(option.value) }}
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
                     </div>
 
-                    <BaseSelect label="Untuk" name="purpose" v-model="purposeField" :options="[
-                        { value: 'receipt_letter', text: 'Surat Balasan' },
-                        { value: 'division_letter', text: 'Surat Bagian' },
-                        { value: 'certificate', text: 'Sertifikat' },
-                        { value: 'work_certificate', text: 'Surat Keterangan' },
-                        { value: 'daily_report', text: 'Laporan Harian' }
-                    ]" required :errors="errors" :errorsValBack="errorsValBack" />
-                    <BaseSelect label="Status" name="status" v-model="statusField" :options="[
+                    <!-- <BaseSelect label="Status" name="status" v-model="statusField" :options="[
                         { value: 'active', text: 'Aktif' },
                         { value: 'inactive', text: 'Tidak Aktif' }
-                    ]" required :errors="errors" :errorsValBack="errorsValBack" />
+                    ]" required :errors="errors" :errorsValBack="errorsValBack" /> -->
                     <div class="flex justify-end gap-2 w-full">
-                        <Button type="button" variant="red" @click="showFormModal = false">
+                        <Button type="button" variant="red" @click="handleCloseModal">
                             Batal
                         </Button>
                         <Button type="submit" :disabled="loading">

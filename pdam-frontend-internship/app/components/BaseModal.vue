@@ -28,7 +28,12 @@ const sizeClass = computed(() => {
 })
 
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'close'])
+
+const onClose = () => {
+  emit('update:modelValue', false)
+  emit('close')
+}
 </script>
 
 <style scoped>
@@ -61,8 +66,8 @@ defineEmits(['update:modelValue'])
 <template>
   <Transition name="fade">
     <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px]"
-      @click.self="$emit('update:modelValue', false)">
-      <button @click="$emit('update:modelValue', false)"
+      @click.self="onClose">
+      <button @click="onClose"
         class="hidden sm:block absolute top-4 right-4 text-white text-2xl hover:text-gray-300 z-50">
         <Icon name="material-symbols:close-rounded" />
       </button>
@@ -73,7 +78,7 @@ defineEmits(['update:modelValue'])
       <div :class="[
         'bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full p-6 relative ',
         sizeClass
-      ]" @keydown.esc="$emit('update:modelValue', false)">
+      ]" @keydown.esc="onClose">
        <!-- <div :class="[
         'bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full p-6 relative max-h-[calc(100vh-20px)] overflow-y-auto',
         sizeClass
