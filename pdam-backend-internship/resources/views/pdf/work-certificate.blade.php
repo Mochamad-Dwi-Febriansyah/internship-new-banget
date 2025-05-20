@@ -234,7 +234,7 @@
             <td class="pb-0">
                 <br>
                 <br> 
-                #
+                <p>{{ empty($result['skip_signature']) ? '#' : '' }}</p> 
                 <br>
                 <br>
                 <br>

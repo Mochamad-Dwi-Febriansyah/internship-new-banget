@@ -165,20 +165,23 @@ const nextStep = async (values: any, { resetForm }: { resetForm: () => void }) =
                 formData.set("school_university_postal_code", selectedSchoolVillage.postal_code);
             }
         }
-        for (const pair of formData.entries()) {
-            console.log(`${pair[0]}:`, pair[1]);
-        }
+        // for (const pair of formData.entries()) {
+        //     console.log(`${pair[0]}:`, pair[1]);
+        // }
         if (currentStep.value === 2) {
             // console.log('Step:', currentStep.value);
 
-            await createApplication(formData);
-
-            // console.log('Done:', JSON.stringify(formValues, null, 2));
-            resetForm();
-            //   showForm.value = false
-            currentStep.value = 0;
-            addNotification('success', 'Pengajuan berkas berhasil dikirim!');
-            addNotification('info', 'Silahkan cek email untuk mendapatkan nomor registrasi!', 10000);
+            try {
+                await createApplication(formData);
+                 // console.log('Done:', JSON.stringify(formValues, null, 2));
+                resetForm();
+                //   showForm.value = false
+                currentStep.value = 0;
+                addNotification('success', 'Pengajuan berkas berhasil dikirim!');
+                addNotification('info', 'Silahkan cek email untuk mendapatkan nomor registrasi!', 10000);
+            } catch (error: any) {
+                  addNotification('error', error.message);
+            }  
 
             return;
         }
@@ -704,13 +707,13 @@ const getVillages = async (event: Event, type: 'identity' | 'school') => {
                             <div class="grid grid-cols-1  mb-6 md:grid-cols-2 gap-4 mt-4">
                                 <div>
                                     <label for="school_university_district"
-                                        class="block text-sm font-medium text-gray-700 dark:text-white">school_university_district<span
+                                        class="block text-sm font-medium text-gray-700 dark:text-white">Kecamatan<span
                                             class="text-red-500">*</span></label>
                                     <Field as="select" name="school_university_district"
                                         id="school_university_district" class="mt-1 p-2 w-full border rounded-md"
                                         :disabled="!schoolSubdistricts.length"
                                         @change="(event: any) => getVillages(event, 'school')">
-                                        <option value="" disabled selected>Pilih school_university_district</option>
+                                        <option value="" disabled selected>Pilih Kecamatan</option>
                                         <option v-for="data in schoolSubdistricts" :key="data.code" :value="data.code">
                                             {{ data.name }}
                                         </option>
@@ -783,7 +786,7 @@ const getVillages = async (event: Event, type: 'identity' | 'school') => {
 
                             <Button v-if="currentStep !== 2" type="submit">Selanjutnya</Button>
 
-                            <Button v-if="currentStep === 2" type="submit">
+                            <Button v-if="currentStep === 2" type="submit" :disabled="loading">
                                 <Icon v-if="loading" name="codex:loader" class="text-xl align-middle"/>
                                 <span v-else>Kirim</span> 
                             </Button> 

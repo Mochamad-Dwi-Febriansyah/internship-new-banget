@@ -17,6 +17,11 @@ import { useField, useForm } from 'vee-validate'
 import { object, string, date } from 'yup'
 import { toTypedSchema } from '@vee-validate/yup'
 import dayjs from 'dayjs'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
+import 'dayjs/locale/id'
+
+dayjs.extend(customParseFormat)
+dayjs.locale('id')
 
 const breadcrumb = [
     { label: "Berkas", icon: "material-symbols:checkbook-outline-rounded", to: "/berkas" }
@@ -183,10 +188,10 @@ const showFormPassphraseModal = ref(false)
 const modalPassphraseTitle = 'Passphrase'
 
 const SubmitSchema = toTypedSchema(object({
-    // number_letter_FAL: string().required('Nomor surat wajib diisi'),   
-    // recipient_FAL: string().required('Kepada wajib diisi'), 
-    // recipient_address_FAL: string().required('Alamat kepada wajib diisi'), 
-    // recipient_date_FAL: date().required('Tanggal surat wajib diisi'),
+    number_letter_FAL: string().required('Nomor surat wajib diisi'),   
+    recipient_FAL: string().required('Kepada wajib diisi'), 
+    recipient_address_FAL: string().required('Alamat kepada wajib diisi'), 
+    recipient_date_FAL: date().required('Tanggal surat wajib diisi'),
 
     // id: string().required('ID wajib diisi'), 
     user_idFAL: string().required('User wajib dipilih'),
@@ -196,9 +201,9 @@ const SubmitSchema = toTypedSchema(object({
     school_major_FAL: string(),
     university_faculty_FAL: string(),
     university_program_study_FAL: string(),
-    date_letter_FAL: date().required('Tanggal surat wajib diisi'),
-    start_date_FAL: date().required('Tanggal mulai wajib diisi'),
-    end_date_FAL: date().required('Tanggal selesai wajib diisi'),
+    // date_letter_FAL: date().required('Tanggal surat wajib diisi'),
+    // start_date_FAL: date().required('Tanggal mulai wajib diisi'),
+    // end_date_FAL: date().required('Tanggal selesai wajib diisi'),
 }))
 
 const { handleSubmit, resetForm, errors } = useForm({
@@ -211,6 +216,7 @@ const { value: attachmentFieldAcceptedLetter } = useField<string>('attachment_FA
 const { value: recipientFieldAcceptedLetter } = useField<string>('recipient_FAL')
 const { value: recipientAddressFieldAcceptedLetter } = useField<string>('recipient_address_FAL')
 const { value: recipientDateFieldAcceptedLetter } = useField<string>('recipient_date_FAL')
+const { value: skipSignatureAcceptedLetter } = useField<string>('skip_signature_FAL', 'false') 
 
 
 
@@ -227,6 +233,7 @@ const { value: startDateFieldAcceptedLetter } = useField<string>('start_date_FAL
 const { value: endDateFieldAcceptedLetter } = useField<string>('end_date_FAL')
 
 const openAcceptedLetter = async (data: DocumentItem) => {
+    // console.log(formatDateID(data.end_date))
     idDocumentFieldAcceptedLetter.value = data.id,
     userIdFieldAcceptedLetter.value = data.user_id,
     nameFieldAcceptedLetter.value = data.user.name
@@ -240,6 +247,12 @@ const openAcceptedLetter = async (data: DocumentItem) => {
     endDateFieldAcceptedLetter.value = formatDateID(data.end_date)
     showFormAcceptedLetterModal.value = true
 }
+
+watch(showFormAcceptedLetterModal, (val) => {
+  if (!val) {
+    resetForm()
+  }
+})
 
 const zoomScale = ref(.6)
 
@@ -284,6 +297,13 @@ const PassphraseField = ref<string | number>()
 let pendingAcceptedLetterFormValues: AcceptedLetterFormValues | null = null
  
 const submitAcceptedLetterForm = async (values: any) => {  
+    // console.log(values)
+    const parsedStart = dayjs(startDateFieldAcceptedLetter.value, 'D MMMM YYYY', 'id')
+    const parsedEnd = dayjs(endDateFieldAcceptedLetter.value, 'D MMMM YYYY', 'id')
+
+    // console.log(dayjs(startDateFieldAcceptedLetter.value))
+    // console.log(parsedEnd.format('YYYY-MM-DD'))
+
     if (!PassphraseField.value) {
         pendingAcceptedLetterFormValues = values
         showFormPassphraseModal.value = true
@@ -291,6 +311,7 @@ const submitAcceptedLetterForm = async (values: any) => {
     }
 
     const formData = new FormData()
+  formData.append('skip_signature', skipSignatureAcceptedLetter.value);
     formData.append('passphrase', String(PassphraseField.value))
     formData.append('user_id', userIdFieldAcceptedLetter.value)
     formData.append('name', nameFieldAcceptedLetter.value)
@@ -300,8 +321,8 @@ const submitAcceptedLetterForm = async (values: any) => {
     formData.append('university_faculty', universityFacultyFieldAcceptedLetter.value)
     formData.append('university_program_study', universityProgramStudyFieldAcceptedLetter.value)
     formData.append('date_document', dateLetterFieldAcceptedLetter.value)
-    formData.append('start_date', dayjs(startDateFieldAcceptedLetter.value).format('YYYY-MM-DD'))
-    formData.append('end_date', dayjs(endDateFieldAcceptedLetter.value).format('YYYY-MM-DD'))
+    formData.append('start_date', parsedStart.format('YYYY-MM-DD'))
+    formData.append('end_date', parsedEnd.format('YYYY-MM-DD'))
 
     formData.append('number_document', numberLetterFieldAcceptedLetter.value) 
     formData.append('letter_nature', letterNatureFieldAcceptedLetter.value) 
@@ -323,6 +344,7 @@ const submitAcceptedLetterForm = async (values: any) => {
         addNotification('success', response.message)
         // TODO: Kirim formData ke API di sini
         showFormAcceptedLetterModal.value = false
+        resetForm()
         await fetchApplications()
     } catch (error: any) {
         addNotification('error', error.message)
@@ -362,9 +384,9 @@ const SubmitSchemaFieldLetter = toTypedSchema(object({
     school_major_FFL: string(),
     university_faculty_FFL: string(),
     university_program_study_FFL: string(),
-    date_letter_FFL: date().required('Tanggal surat wajib diisi'),
-    start_date_FFL: date().required('Tanggal mulai wajib diisi'),
-    end_date_FFL: date().required('Tanggal selesai wajib diisi'),
+    // date_letter_FFL: date().required('Tanggal surat wajib diisi'),
+    // start_date_FFL: date().required('Tanggal mulai wajib diisi'),
+    // end_date_FFL: date().required('Tanggal selesai wajib diisi'),
 }))
 
 const { handleSubmit: handleSubmitFieldLetter, resetForm: resetFormFieldLetter, errors: errorsFieldLetter } = useForm({
@@ -374,6 +396,7 @@ const { value: numberLetterFieldFieldLetter } = useField<string>('number_letter_
 const { value: recipientFieldFieldLetter } = useField<string>('recipient_FFL')
 const { value: recipientAddressFieldFieldLetter } = useField<string>('recipient_address_FFL')
 const { value: recipientDateFieldFieldLetter } = useField<string>('recipient_date_FFL')
+const { value: skipSignatureFieldLetter } = useField<string>('skip_signature_FFL', 'false') 
 
 const { value: idDocumentFieldFieldLetter } = useField<string>('idFFL')
 const { value: userIdFieldFieldLetter } = useField<string>('user_idFFL')
@@ -402,6 +425,12 @@ const openFieldLetter = async (data: DocumentItem) => {
     endDateFieldFieldLetter.value = formatDateID(data.end_date)
     showFormFieldLetterModal.value = true
 }
+
+watch(showFormFieldLetterModal, (val) => {
+  if (!val) {
+    resetForm()
+  }
+})
 
 const formPreviewFieldLetter = computed(() => ({
     nomor_surat: numberLetterFieldFieldLetter.value, 
@@ -444,9 +473,13 @@ const submitFieldLetterForm = async (values: any) => {
         showFormPassphraseModal.value = true
         return
     }
+
+     const parsedStart = dayjs(startDateFieldFieldLetter.value, 'D MMMM YYYY', 'id')
+    const parsedEnd = dayjs(endDateFieldFieldLetter.value, 'D MMMM YYYY', 'id')
     // console.log("values" , values)
 
     const formData = new FormData()
+      formData.append('skip_signature', skipSignatureFieldLetter.value);
     formData.append('passphrase', String(PassphraseField.value))
     formData.append('user_id', userIdFieldFieldLetter.value)
     formData.append('name', nameFieldFieldLetter.value)
@@ -456,8 +489,8 @@ const submitFieldLetterForm = async (values: any) => {
     formData.append('university_faculty', universityFacultyFieldFieldLetter.value)
     formData.append('university_program_study', universityProgramStudyFieldFieldLetter.value)
     formData.append('date_document', dateLetterFieldFieldLetter.value)
-    formData.append('start_date', dayjs(startDateFieldFieldLetter.value).format('YYYY-MM-DD'))
-    formData.append('end_date', dayjs(endDateFieldFieldLetter.value).format('YYYY-MM-DD'))
+    formData.append('start_date', parsedStart.format('YYYY-MM-DD'))
+    formData.append('end_date', parsedEnd.format('YYYY-MM-DD'))
 
     formData.append('number_document', numberLetterFieldFieldLetter.value)  
     formData.append('recipient', recipientFieldFieldLetter.value) 
@@ -721,6 +754,36 @@ const submitFieldLetterForm = async (values: any) => {
                                 <BaseInput label="Tanggal Kepada" name="recipient_date_FAL"
                                     v-model="recipientDateFieldAcceptedLetter" type="date" :errors="errors" />
 
+                                  <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                        Lewati Tanda Tangan?
+                                    </label>
+                                    
+                                    <div class="flex items-center gap-4">
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FAL"
+                                            value="true"
+                                            class="mr-2"
+                                            v-model="skipSignatureAcceptedLetter"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Ya</span>
+                                        </label>
+
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FAL"
+                                            value="false"
+                                            class="mr-2"
+                                                v-model="skipSignatureAcceptedLetter"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Tidak</span>
+                                        </label>
+                                    </div>
+                                    </div>
+
 
                                 <BaseInput label="Nama" name="name_FAL" type="text" v-model="nameFieldAcceptedLetter"
                                     :disabled="true" required :errors="errors" :errorsValBack="errorsValBack" />
@@ -786,6 +849,36 @@ const submitFieldLetterForm = async (values: any) => {
 
                                 <BaseInput label="Tanggal Kepada" name="recipient_date_FFL"
                                     v-model="recipientDateFieldFieldLetter" type="date" :errors="errorsFieldLetter" />
+
+                                                                      <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                        Lewati Tanda Tangan?
+                                    </label>
+                                    
+                                    <div class="flex items-center gap-4">
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FFL"
+                                            value="true"
+                                            class="mr-2"
+                                            v-model="skipSignatureFieldLetter"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Ya</span>
+                                        </label>
+
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FFL"
+                                            value="false"
+                                            class="mr-2"
+                                                v-model="skipSignatureFieldLetter"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Tidak</span>
+                                        </label>
+                                    </div>
+                                    </div>
 
                                 <BaseInput label="Nama" name="name_FFL" type="text" v-model="nameFieldFieldLetter"
                                     :disabled="true" required :errors="errorsFieldLetter" :errorsValBack="errorsValBack" />

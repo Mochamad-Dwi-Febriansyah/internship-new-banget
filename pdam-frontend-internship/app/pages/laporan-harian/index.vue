@@ -140,7 +140,7 @@ const isEdit = ref(false)
 const form = ref<{ id?: string, attendance_id?: string  }>({})
 
 const modalFormTitle = computed(() =>
-  isEdit.value ? 'Ubah Penelitian' : 'Tambah Penelitian'
+  isEdit.value ? 'Ubah Laporan Harian' : 'Tambah Laporan Harian'
 )
 const SubmitSchema = toTypedSchema(object({
     title: string().required('Kegiatan wajib diisi'),
@@ -466,8 +466,8 @@ const submitForm = async (values: any) => {
                 <Button type="button" variant="red" @click="showFormModal = false">
                   Batal
                 </Button>
-                <Button type="submit" :disabled="loading">
-                  <Icon v-if="loading" name="codex:loader" class="text-xl align-middle" />
+                <Button type="submit" :disabled="loading || loadDayliReport">
+                  <Icon v-if="loading || loadDayliReport" name="codex:loader" class="text-xl align-middle" />
                   <span v-else>{{ isEdit ? 'Ubah' : 'Tambah' }}</span>
                 </Button>
               </div>

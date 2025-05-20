@@ -142,18 +142,18 @@
         }
 
         .footer {
-    position: fixed;
-    bottom: 0; /* posisi dari bawah halaman */
-    left: 0;
-    right: 0;
-    height: 50px;
-    text-align: center;
-    font-size: 12px;
-    page-break-before: always;
-  }
-  .i{
-    font-style: italic;
-  }
+            position: fixed;
+            bottom: 0; /* posisi dari bawah halaman */
+            left: 0;
+            right: 0;
+            height: 50px;
+            text-align: center;
+            font-size: 12px;
+            page-break-before: avoid;
+        }
+        .i{
+            font-style: italic;
+        }
 
     </style>
 </head>
@@ -302,7 +302,7 @@
             <td class="pb-0">
                 <br>
                 <br> 
-                #
+                <p>{{ empty($result['skip_signature']) ? '#' : '' }}</p> 
                 <br>
                 <br>
                 <br>
@@ -323,7 +323,7 @@
                 @endif 
             </td>
         </tr>
-    </table>
+    </table> 
 
     <div class="footer i">Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik <br>
         yang diterbitkan oleh Balai Besar Sertifikasi Elektronik (BSrE), Badan Siber dan Sandi Negara</div>

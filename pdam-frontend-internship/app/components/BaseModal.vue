@@ -67,10 +67,10 @@ const onClose = () => {
   <Transition name="fade">
     <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px]"
       @click.self="onClose">
-      <button @click="onClose"
+      <!-- <button @click="onClose"
         class="hidden sm:block absolute top-4 right-4 text-white text-2xl hover:text-gray-300 z-50">
         <Icon name="material-symbols:close-rounded" />
-      </button>
+      </button> -->
 
       <!-- <div
         class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl p-6 relative max-h-[calc(100vh-20px)] overflow-y-auto"
@@ -90,9 +90,13 @@ const onClose = () => {
             {{ title }}
           </h2>
           <button @click="$emit('update:modelValue', false)"
-            class="sm:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            class=" text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 rounded-full p-2 flex items-center justify-center transition duration-200 ease-in-out">
             <Icon name="material-symbols:close-rounded" class="text-xl" />
           </button>
+          <!-- <button @click="$emit('update:modelValue', false)"
+            class="sm:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <Icon name="material-symbols:close-rounded" class="text-xl" />
+          </button> -->
         </div>
 
         <!-- Body -->

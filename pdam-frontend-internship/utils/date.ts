@@ -7,6 +7,15 @@ export const formatDateID = (dateStr: string | null | undefined): string => {
       year: 'numeric',
     })
   }
+export const formatDateEN = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '-'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-EN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
 
 export const formatDateNoWeekday= (date: string | Date | null): string => {
     if (!date) return "--:--";

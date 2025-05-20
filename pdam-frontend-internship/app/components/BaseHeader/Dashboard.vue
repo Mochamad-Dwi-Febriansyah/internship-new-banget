@@ -14,7 +14,7 @@ const mobileMenuOpen = ref(false)
 
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
-
+ 
 defineProps<{
     toggleSidebar: (event: MouseEvent) => void;
 }>();
@@ -72,16 +72,18 @@ defineProps<{
                 <div class="flex items-center gap-2">
                     <div class="flex flex-row items-center text-gray-700 dark:text-gray-200">
                         <div class="flex flex-col text-right">
-                        <button
-                            @click="toggleDark()"
-                            class="p-2 rounded-full transition duration-300 hover:scale-110 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center group"
-                            aria-label="Toggle Dark Mode"
-                        >
-                            <Icon
-                            :name="isDark ? 'material-symbols:dark-mode' : 'material-symbols:light-mode'"
-                            class="w-6 h-6 text-gray-700 dark:text-gray-200 transition-transform duration-500 group-active:rotate-[360deg]"
-                            />
-                        </button>
+                            <ClientOnly>
+  <button
+    @click="toggleDark()"
+    class="p-2 rounded-full transition duration-300 hover:scale-110 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-center group"
+    aria-label="Toggle Dark Mode"
+  >
+    <Icon
+      :name="isDark ? 'material-symbols:dark-mode' : 'material-symbols:light-mode'"
+      class="w-6 h-6 text-gray-700 dark:text-gray-200 transition-transform duration-500 group-active:rotate-[360deg]"
+    />
+  </button>
+</ClientOnly>
                         </div>
                     </div>
                 </div> 

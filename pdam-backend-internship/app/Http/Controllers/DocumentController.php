@@ -8,6 +8,7 @@ use App\Helpers\LogHelper;
 use App\Http\Requests\DocumentRequest;
 use App\Models\Document;
 use App\Models\Signature;
+use App\Services\BsreSignerService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use GuzzleHttp\Client;
@@ -24,6 +25,13 @@ use Illuminate\Support\Facades\Validator;
 class DocumentController extends Controller
 {
     use ApiResponse;
+
+    protected $bsreSignerService;
+
+    public function __construct(BsreSignerService $bsreSignerService)
+    {
+        $this->bsreSignerService = $bsreSignerService;
+    }
     /**
      * Display a listing of the resource.
      */
@@ -213,6 +221,8 @@ class DocumentController extends Controller
             $data['start_date'] =  \Carbon\Carbon::parse($document->start_date)->translatedFormat('d F Y');
             $data['end_date'] = \Carbon\Carbon::parse( $document->end_date)->translatedFormat('d F Y');
             $data['date_now'] = \Carbon\Carbon::now()->translatedFormat('d F Y');
+
+            $data['skip_signature'] = $documentRequest->boolean('skip_signature');
         // dd($document);
         $pdf = Pdf::loadView('pdf.work-certificate', ['result' => $data]);
 
@@ -235,21 +245,30 @@ class DocumentController extends Controller
 
         $idLetter = (string) Str::uuid(); // Generate UUID for the file
         // Tanda tangani dengan BSrE
-        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/work_certificate/' . $pdfFileName)), $pdfFileName, '1234567890123456', $documentRequest->passphrase, $idLetter, $type = 'work_certificate');
+        // $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/work_certificate/' . $pdfFileName)), $pdfFileName, '1234567890123456', $documentRequest->passphrase, $idLetter, $type = 'work_certificate');
+        if (!$documentRequest->boolean('skip_signature')) {
+            $signedPdfResponse = $this->bsreSignerService->sign(realpath(storage_path('app/public/documents/work_certificate/' . $pdfFileName)), $pdfFileName, '1234567890123456', $documentRequest->passphrase, $documentRequest->id, 'work_certificate');
+             if (isset($signedPdfResponse->original['message']) && isset($signedPdfResponse->original['error']) && isset($signedPdfResponse->original['details'])) {
+                LogHelper::log('certificate_store', 'Failed to sign document with BSrE', null, [
+                   'message' => $signedPdfResponse->original['message'],
+                   'error' => $signedPdfResponse->original['error'],
+                   'details' => $signedPdfResponse->original['details'],
+               ], 'error');
 
-        // Path file signed yang disimpan
-        // $signedPdfFileName = 'signed_' . $pdfFileName;
-        // $signedRelativePath = 'documents/documents/work_certificate/' . $signedPdfFileName;
-
-        // Simpan path ke database
-        // $document->update([
-        //     'work_certificate' => $signedPdfResponse->original
-        // ]);
+               return $this->errorResponse($signedPdfResponse->original, $signedPdfResponse->original['error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+           }
+           $signedFileName = $signedPdfResponse->original;
+       }else{
+           LogHelper::log('work_certificate_store', 'Skipped BSrE signing', null, [
+               'work_certificate' => $idLetter
+           ]);
+           $signedFileName = $pdfFileName;
+       }
 
         $document->update([
             'work_certificate' => [
                 'id' => $idLetter,
-                'path' => 'documents/work_certificate/'.$signedPdfResponse->original,
+                'path' => 'documents/work_certificate/'.$signedFileName,
             ]
         ]); 
 

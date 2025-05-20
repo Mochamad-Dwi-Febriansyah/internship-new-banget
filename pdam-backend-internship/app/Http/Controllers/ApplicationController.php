@@ -29,9 +29,18 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
 
+use App\Services\BsreSignerService;
+
 class ApplicationController extends Controller
 {
     use ApiResponse;
+
+    protected $bsreSignerService;
+
+    public function __construct(BsreSignerService $bsreSignerService)
+    {
+        $this->bsreSignerService = $bsreSignerService;
+    }
     /**
      * Display a listing of the resource.
      */
@@ -53,13 +62,13 @@ class ApplicationController extends Controller
 
         $documents->getCollection()->transform(function ($doc) {
             $user = $doc->user;
-        
+
             // Ambil role pertama (karena Spatie bisa multi-role)
             $user->role = $user->roles->first()?->name;
-        
+
             // Hapus properti roles supaya tidak ikut di response
             unset($user->roles);
-        
+
             return $doc;
         });
 
@@ -97,7 +106,7 @@ class ApplicationController extends Controller
             $user->assignRole($userRequest->role); // <-- Ini assign role
 
             $uploadedFiles = $documentRequest->handleUploads();
- 
+
             $document = Document::create(array_merge(
                 $documentRequest->validated(),
                 $uploadedFiles,
@@ -328,39 +337,37 @@ class ApplicationController extends Controller
 
     public function updateStatusAndMentor(Request $request, $id)
     {
-   
+
         DB::beginTransaction();
         try {
-            $validator = Validator::make($request->all(),[
+            $validator = Validator::make($request->all(), [
                 'document_status' => 'required|in:accepted,pending,rejected',
-                'mentor_id' => 'nullable', 
+                'mentor_id' => 'nullable',
             ]);
 
-            if($validator->fails())
-            {
+            if ($validator->fails()) {
                 return $this->errorResponse($validator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
             $document = Document::find($id);
 
-            if(!$document)
-            {
+            if (!$document) {
                 return $this->errorResponse(null, 'Document not found', Response::HTTP_NOT_FOUND);
             }
-    
+
             $updateData = array_filter([
                 'document_status' => $request->document_status,
                 'mentor_id' => $request->mentor_id,
-                'mentor_name' => $request->mentor_name, 
-                'mentor_rank_group' => $request->mentor_rank_group, 
-                'mentor_position' => $request->mentor_position, 
-                'mentor_nik' => $request->mentor_nik ?? null,  
+                'mentor_name' => $request->mentor_name,
+                'mentor_rank_group' => $request->mentor_rank_group,
+                'mentor_position' => $request->mentor_position,
+                'mentor_nik' => $request->mentor_nik ?? null,
             ], fn($value) => $value !== null && $value !== '');
-            
+
             $document->update($updateData);
 
             $userDocument = $document->user;
-            if ($request->document_status === 'accepted' && $userDocument) { 
+            if ($request->document_status === 'accepted' && $userDocument) {
                 $defaultPassword = Str::random(8); // Buat password acak
                 $hashedPassword = Hash::make($defaultPassword); // Hash sebelum menyimpan
 
@@ -372,20 +379,19 @@ class ApplicationController extends Controller
 
                 Mail::to($userDocument->email)->send(new MailSendCredentialsLogin($userDocument->email, $defaultPassword));
             }
-     
+
             DB::commit();
 
             LogHelper::log('document_update', 'Updated document status and mentor successfully', $document, [
                 'status' => $document->document_status,
                 'mentor_id' => $document->mentor_id,
-                'mentor_name' => $document->mentor_name, 
-                'mentor_rank_group' => $document->mentor_rank_group, 
-                'mentor_position' => $document->mentor_position, 
-                'mentor_nik' => $document->mentor_nik ?? null,  
+                'mentor_name' => $document->mentor_name,
+                'mentor_rank_group' => $document->mentor_rank_group,
+                'mentor_position' => $document->mentor_position,
+                'mentor_nik' => $document->mentor_nik ?? null,
             ]);
 
             return $this->successResponse(null, 'Document has been successfully updated', Response::HTTP_OK);
-
         } catch (\Throwable $th) {
             DB::rollBack();
             LogHelper::log('document_update_status_and_mentor', 'Failed to update document', null, [], 'error');
@@ -397,8 +403,7 @@ class ApplicationController extends Controller
     {
         $document = Document::find($id);
 
-        if(!$document)
-        {
+        if (!$document) {
             return $this->errorResponse(null, 'Document not found', Response::HTTP_NOT_FOUND);
         }
 
@@ -406,7 +411,7 @@ class ApplicationController extends Controller
             return $this->errorResponse(null, 'Document has not been approved', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
-        $submissionReceiptValidator = Validator::make($request->all(), [  
+        $submissionReceiptValidator = Validator::make($request->all(), [
             // 'status_berkas' => 'required',  
             // 'status_magang' => 'required|in:mahasiswa,siswa',   
             'name' => 'required',
@@ -416,17 +421,16 @@ class ApplicationController extends Controller
             'date_document' => 'required',
             'number_document' => 'required',
             'nature' => 'nullable',
-            'attachment' => 'nullable', 
+            'attachment' => 'nullable',
             'recipient' => 'required|string',
             'recipient_address' => 'required|string',
             'recipient_date' => 'required|date',
             'start_date' => 'required|date',
             'end_date' => 'required|date',
             'passphrase' => 'required',
-        ]); 
+        ]);
 
-        if($submissionReceiptValidator->fails())
-        {
+        if ($submissionReceiptValidator->fails()) {
             return $this->errorResponse($submissionReceiptValidator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -435,9 +439,9 @@ class ApplicationController extends Controller
             $dateFields = ['date_document', 'recipient_date', 'start_date', 'end_date'];
 
             $data = []; // Initialize the data array
-        
-              // Generate PDF using updated data
-              $data = array_merge($data, $request->all());
+
+            // Generate PDF using updated data
+            $data = array_merge($data, $request->all());
 
             // Loop through each date field
             foreach ($dateFields as $field) {
@@ -447,10 +451,10 @@ class ApplicationController extends Controller
                     $data[$field] = '......'; // Default if empty
                 }
             }
-        
+
             // Set document status
             $data['document_status'] = $document->document_status ?? '......'; // Default if empty
-        
+
             // Set internship status (student or university)
             if (empty($document->school_major)) {
                 $data['internship_status'] = 'university';
@@ -459,76 +463,85 @@ class ApplicationController extends Controller
             } else {
                 $data['internship_status'] = 'unknown'; // Fallback if no condition matches
             }
-        
-          
+
+
             // dd($data); 
-            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'receipt_letter', 'status'=>'active'])->first();
+            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'receipt_letter', 'status' => 'active'])->first();
             // dd($data['signature']);
+            $data['skip_signature'] = $request->boolean('skip_signature');
 
             $pdfContent = Pdf::loadView('pdf.submission_receipt', ['result' => $data]);
 
             // return $pdfContent->download('submission_receipt.pdf');
 
-        $pdfFileName = 'accepted_letter_' . time() . '.pdf';
+            $pdfFileName = 'accepted_letter_' . time() . '.pdf';
 
-        // Pastikan folder ada
-        $pdfFolder = storage_path('app/public/documents/accepted_letter/'. $pdfFileName);
-        if (!file_exists(storage_path('app/public/documents/accepted_letter'))) {
-            mkdir(storage_path('app/public/documents/accepted_letter'), 0777, true);
-        }
+            // Pastikan folder ada
+            $pdfFolder = storage_path('app/public/documents/accepted_letter/' . $pdfFileName);
+            if (!file_exists(storage_path('app/public/documents/accepted_letter'))) {
+                mkdir(storage_path('app/public/documents/accepted_letter'), 0777, true);
+            }
 
-        // Simpan PDF ke local storage 
-        file_put_contents($pdfFolder, $pdfContent->output());
-        
-        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
+            // Simpan PDF ke local storage 
+            file_put_contents($pdfFolder, $pdfContent->output());
 
-        $idLetter = (string) Str::uuid(); // Generate UUID for the file
-        // Tanda tangani dengan BSrE
-        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/accepted_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, $type = 'accepted_letter');
+            // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
 
-        // Path file signed yang disimpan
-        // $signedPdfFileName = 'signed_' . $pdfFileName;
-        // $signedRelativePath = 'documents/documents/accepted_letter/' . $signedPdfFileName;
+            $idLetter = (string) Str::uuid(); // Generate UUID for the file
+            //   $signedPdfResponse = $this->bsreSignerService->sign(realpath(storage_path('app/public/documents/accepted_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $id, 'accepted_letter');
+            if (!$request->boolean('skip_signature')) {
+                $signedPdfResponse = $this->bsreSignerService->sign(realpath(storage_path('app/public/documents/accepted_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, 'accepted_letter');
+                if (isset($signedPdfResponse->original['message']) && isset($signedPdfResponse->original['error']) && isset($signedPdfResponse->original['details'])) {
+                    LogHelper::log('submission_receipt_store', 'Failed to sign document with BSrE', null, [
+                        'message' => $signedPdfResponse->original['message'],
+                        'error' => $signedPdfResponse->original['error'],
+                        'details' => $signedPdfResponse->original['details'],
+                    ], 'error');
 
-        // Simpan path ke database
-        // $document->update([
-        //     'accepted_letter' => $signedPdfResponse->original
-        // ]);
+                    return $this->errorResponse($signedPdfResponse->original, $signedPdfResponse->original['error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+                $signedFileName = $signedPdfResponse->original;
+            } else {
+                LogHelper::log('submission_receipt_store', 'Skipped BSrE signing', null, [
+                    'submission_receipt' => $idLetter
+                ]);
+                $signedFileName = $pdfFileName;
+            }
 
-        $document->update([
-            'accepted_letter' => [
-                'id' => $idLetter,
-                'path' => 'documents/accepted_letter/'.$signedPdfResponse->original,
-            ]
-        ]); 
+            $document->update([
+                'accepted_letter' => [
+                    'id' => $idLetter,
+                    'path' => 'documents/accepted_letter/' . $signedFileName,
+                ]
+            ]);
 
 
             DB::commit();
-        
-            return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $signedPdfResponse->original], Response::HTTP_OK);
+
+            return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => 'documents/accepted_letter/'.$signedFileName], Response::HTTP_OK);
         } catch (\Throwable $th) {
-        //     'errors' => $th->getMessage(), // tampilkan error detail
-        // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
+            //     'errors' => $th->getMessage(), // tampilkan error detail
+            // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
             DB::rollBack();
             LogHelper::log('submission_receipt_store', 'Failed to create a new submission receipt', null, [], 'error');
             return $this->errorResponse($th->getMessage(), 'An error occurred while creating the submission receipt', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-    } 
-    
+    }
+
     public function fieldLetter(Request $request, $id)
     {
         $document = Document::find($id);
 
-        if(!$document)
-        {
+        if (!$document) {
             return $this->errorResponse(null, 'Document not found', Response::HTTP_NOT_FOUND);
         }
+        // dd($document);
 
         if ($document->document_status != 'accepted') {
             return $this->errorResponse(null, 'Document has not been approved', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
-        $submissionReceiptValidator = Validator::make($request->all(), [  
+        $submissionReceiptValidator = Validator::make($request->all(), [
             // 'status_berkas' => 'required',  
             // 'status_magang' => 'required|in:mahasiswa,siswa',   
             'name' => 'required',
@@ -536,7 +549,7 @@ class ApplicationController extends Controller
             'university_program_study' => 'nullable',
             'nisn_npm_nim' => 'required',
             'date_document' => 'required',
-            'number_document' => 'required', 
+            'number_document' => 'required',
             'recipient' => 'required|string',
             'recipient_address' => 'required|string',
             'recipient_date' => 'required|date',
@@ -546,10 +559,9 @@ class ApplicationController extends Controller
             'delivered_to' => 'sometimes|array|min:1',
             'delivered_to.*.npp' => 'sometimes|string|exists:employees,npp',
             'delivered_to.*.name' => 'sometimes|string',
-        ]); 
+        ]);
 
-        if($submissionReceiptValidator->fails())
-        {
+        if ($submissionReceiptValidator->fails()) {
             return $this->errorResponse($submissionReceiptValidator->errors(), 'Validation error', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
@@ -570,10 +582,10 @@ class ApplicationController extends Controller
                 }
             }
             // dd($data);
-        
+
             // Set document status
             $data['document_status'] = $document->document_status ?? '......'; // Default if empty
-        
+
             // Set internship status (student or university)
             if (empty($document->school_major)) {
                 $data['internship_status'] = 'university';
@@ -582,130 +594,152 @@ class ApplicationController extends Controller
             } else {
                 $data['internship_status'] = 'unknown'; // Fallback if no condition matches
             }
-        
+
 
             // dd($data); 
-            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'field_letter', 'status'=>'active'])->first();
+            $data['signature'] = Signature::whereJsonContains('purposes', ['name' => 'field_letter', 'status' => 'active'])->first();
+            // dd($data); 
+            $data['skip_signature'] = $request->boolean('skip_signature');
 
             $pdfContent = Pdf::loadView('pdf.field_letter', ['result' => $data]);
 
             // return $pdfContent->download('field_letter.pdf');
 
-        $pdfFileName = 'field_letter_' . time() . '.pdf';
+            $pdfFileName = 'field_letter_' . time() . '.pdf';
 
-        // Pastikan folder ada
-        $pdfFolder = storage_path('app/public/documents/field_letter/'. $pdfFileName);
-        if (!file_exists(storage_path('app/public/documents/field_letter'))) {
-            mkdir(storage_path('app/public/documents/field_letter'), 0777, true);
-        }
+            // Pastikan folder ada
+            $pdfFolder = storage_path('app/public/documents/field_letter/' . $pdfFileName);
+            if (!file_exists(storage_path('app/public/documents/field_letter'))) {
+                mkdir(storage_path('app/public/documents/field_letter'), 0777, true);
+            }
 
-        // Simpan PDF ke local storage 
-        file_put_contents($pdfFolder, $pdfContent->output());
-        
-        // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
+            // Simpan PDF ke local storage 
+            file_put_contents($pdfFolder, $pdfContent->output());
 
-        $idLetter = (string) Str::uuid(); // Generate UUID for the file
-        // Tanda tangani dengan BSrE
-        $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/field_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, $type='field_letter');
+            // return response()->json(['message' => 'Submission receipt successfully created', 'file_path' => $pdfFileName, 'real' => storage_path('app/public/documents/accepted_letter/' . $pdfFileName)], Response::HTTP_INTERNAL_SERVER_ERROR);
 
-        // Path file signed yang disimpan
-        // $signedPdfFileName = 'signed_' . $pdfFileName;
-        // $signedRelativePath = 'documents/documents/field_letter/' . $signedPdfFileName;
+            $idLetter = (string) Str::uuid(); // Generate UUID for the file
 
-        // Simpan path ke database
-        // $document->update([
-        //     'field_letter' => $signedPdfResponse->original
-        // ]);
+            // Tanda tangani dengan BSrE
+            // $signedPdfResponse = $this->signWithBsre(realpath(storage_path('app/public/documents/field_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, $type = 'field_letter');
+            if (!$request->boolean('skip_signature')) {
+                $signedPdfResponse = $this->bsreSignerService->sign(realpath(storage_path('app/public/documents/field_letter/' . $pdfFileName)), $pdfFileName, '1234567890123456', $request->passphrase, $idLetter, 'field_letter');
+                if (isset($signedPdfResponse->original['message']) && isset($signedPdfResponse->original['error']) && isset($signedPdfResponse->original['details'])) {
+                    LogHelper::log('field_letter_store', 'Failed to sign document with BSrE', null, [
+                        'message' => $signedPdfResponse->original['message'],
+                        'error' => $signedPdfResponse->original['error'],
+                        'details' => $signedPdfResponse->original['details'],
+                    ], 'error');
 
-        $document->update([
-            'field_letter' => [
-                'id' => $idLetter,
-                'path' => 'documents/field_letter/'.$signedPdfResponse->original,
-                'delivered_to' => $request->delivered_to,
-            ]
-        ]); 
+                    return $this->errorResponse($signedPdfResponse->original, $signedPdfResponse->original['error'], Response::HTTP_INTERNAL_SERVER_ERROR);
+                }
+                $signedFileName = $signedPdfResponse->original;
+            } else {
+                LogHelper::log('field_letter_store', 'Skipped BSrE signing', null, [
+                    'field_letter' => $idLetter
+                ]);
+                $signedFileName = $pdfFileName;
+            }
+
+            $document->update([
+                'field_letter' => [
+                    'id' => $idLetter,
+                    'path' => 'documents/field_letter/' . $signedFileName,
+                    'delivered_to' => $request->delivered_to,
+                ]
+            ]);
 
 
             DB::commit();
-        
-            return response()->json(['message' => 'Field letter successfully created', 'file_path' => $signedPdfResponse->original], Response::HTTP_OK);
+
+            return response()->json(['message' => 'Field letter successfully created', 'file_path' => 'documents/field_letter/' . $signedFileName], Response::HTTP_OK);
         } catch (\Throwable $th) {
-        //     'errors' => $th->getMessage(), // tampilkan error detail
-        // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
+            //     'errors' => $th->getMessage(), // tampilkan error detail
+            // 'trace' => $th->getTraceAsString(), // opsional: untuk debug trace
             DB::rollBack();
             LogHelper::log('field_letter_store', 'Failed to create a new Field letter', null, [], 'error');
             return $this->errorResponse($th->getMessage(), 'An error occurred while creating the Field letter', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    private function signWithBsre($pdfPath, $pdfFileName, $nik, $passphrase, $idLetter, $type){
-        
-        $client = new Client();
-        // $bsreUrl = 'http://103.101.52.82/api/sign/pdf';
-        $bsreUrl = config('bsre.url').'/api/sign/pdf'; 
-        try { 
-            
-            $response = $client->request('POST', $bsreUrl, [
-                'headers' => [
-                    'Authorization' => 'Basic ' . base64_encode(config('bsre.username') . ':' . config('bsre.password')),
-                    'Accept' => 'application/json',
-                ], 
-                'multipart' => [
-                    [
-                        'name' => 'file',
-                        'contents' => fopen($pdfPath, 'r'),
-                        'filename' => $pdfFileName
-                    ],
-                    [
-                        'name' => 'nik',
-                        'contents' => $nik
-                    ],
-                    [
-                        'name' => 'passphrase',
-                        'contents' => $passphrase
-                    ],
-                    [
-                        'name' => 'tampilan',
-                        'contents' => 'visible'
-                    ],
-                    [
-                        'name' => 'linkQR',
-                        'contents' => config('bsre.linkqr').'?id='.$idLetter
-                    ],
-                    [
-                        'name' => 'tag_koordinat',
-                        'contents' => '#'
-                    ],
-                    [
-                        'name' => 'width',
-                        'contents' => '100'
-                    ],
-                    [
-                        'name' => 'height',
-                        'contents' => '100'
-                    ],
-                ],
+    // private function signWithBsre($pdfPath, $pdfFileName, $nik, $passphrase, $idLetter, $type)
+    // {
 
-            ]); 
-            $signedPdfPath = storage_path('app/public/documents/'.$type.'/signed_' . $pdfFileName);
-            file_put_contents($signedPdfPath, $response->getBody()->getContents());
-            return response()->json('signed_'.$pdfFileName); 
-        } catch (RequestException $e) {
-            $responseBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null;
+    //     $client = new Client();
+    //     // $bsreUrl = 'http://103.101.52.82/api/sign/pdf';
+    //     $bsreUrl = config('bsre.url') . '/api/sign/pdf';
+    //     try {
 
-            LogHelper::log('bsre_signing_error', 'BSrE signing request failed', null, [
-                'message' => $e->getMessage(),
-                'response' => $responseBody,
-            ], 'error');
-        
-            // Buat respons error yang lebih ramah
-            throw new HttpResponseException(response()->json([
-                'message' => 'Gagal menandatangani dokumen dengan BSrE',
-                'error' => $e->getMessage(),
-                'details' => $responseBody,
-            ], 500));
-        }
-    }
+    //         $response = $client->request('POST', $bsreUrl, [
+    //             'headers' => [
+    //                 'Authorization' => 'Basic ' . base64_encode(config('bsre.username') . ':' . config('bsre.password')),
+    //                 'Accept' => 'application/json',
+    //             ],
+    //             'multipart' => [
+    //                 [
+    //                     'name' => 'file',
+    //                     'contents' => fopen($pdfPath, 'r'),
+    //                     'filename' => $pdfFileName
+    //                 ],
+    //                 [
+    //                     'name' => 'nik',
+    //                     'contents' => $nik
+    //                 ],
+    //                 [
+    //                     'name' => 'passphrase',
+    //                     'contents' => $passphrase
+    //                 ],
+    //                 [
+    //                     'name' => 'tampilan',
+    //                     'contents' => 'visible'
+    //                 ],
+    //                 [
+    //                     'name' => 'linkQR',
+    //                     'contents' => config('bsre.linkqr') . '?id=' . $idLetter
+    //                 ],
+    //                 [
+    //                     'name' => 'tag_koordinat',
+    //                     'contents' => '#'
+    //                 ],
+    //                 [
+    //                     'name' => 'width',
+    //                     'contents' => '100'
+    //                 ],
+    //                 [
+    //                     'name' => 'height',
+    //                     'contents' => '100'
+    //                 ],
+    //             ],
+
+    //         ]);
+    //         $signedPdfPath = storage_path('app/public/documents/' . $type . '/signed_' . $pdfFileName);
+    //         file_put_contents($signedPdfPath, $response->getBody()->getContents());
+    //         return response()->json('signed_' . $pdfFileName);
+    //     } catch (RequestException $e) {
+    //         $responseBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : null;
+
+    //         // Menangani error dengan BSrE dan menampilkan pesan error dari respons
+    //         if ($responseBody) {
+    //             $errorResponse = json_decode($responseBody, true); // Mengonversi JSON ke array
+    //             $errorMessage = $errorResponse['error'] ?? 'An unknown error occurred'; // Pesan error default jika tidak ada
+
+    //             // Mengembalikan respons dengan pesan error dari BSrE
+    //             return response()->json([
+    //                 'message' => 'Gagal menandatangani dokumen dengan BSrE',
+    //                 'error' => $errorMessage,
+    //                 'details' => $errorResponse,
+    //             ], Response::HTTP_BAD_REQUEST);
+    //         }
+
+    //         // Logging error jika respons tidak ada
+    //         LogHelper::log('bsre_signing_error', 'BSrE signing request failed', null, [
+    //             'message' => $e->getMessage(),
+    //             'response' => $responseBody,
+    //         ], 'error');
+
+    //         return $this->errorResponse($e->getMessage(), 'An error occurred while export work certificate the document', Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
 
     // Di dalam controller kamu
     public function parseDate($date)
@@ -715,7 +749,7 @@ class ApplicationController extends Controller
             if (preg_match('/\d{4}-\d{2}-\d{2}/', $date)) {
                 return Carbon::parse($date)->translatedFormat('d F Y'); // Mengonversi ke format "d F Y" (contoh: 01 June 2025)
             }
-            
+
             // Jika tanggal menggunakan format lainnya (seperti "12 Maret 2025"), coba parsing secara eksplisit
             $indonesianMonths = [
                 'Januari' => 'January',
@@ -731,7 +765,7 @@ class ApplicationController extends Controller
                 'November' => 'November',
                 'Desember' => 'December',
             ];
-            
+
             // Mengganti nama bulan Indonesia ke dalam bahasa Inggris untuk mempermudah parsing
             $englishDate = strtr($date, $indonesianMonths);
             return Carbon::createFromFormat('d F Y', $englishDate)->translatedFormat('d F Y');
@@ -741,6 +775,4 @@ class ApplicationController extends Controller
             return '......'; // Nilai fallback jika terjadi error
         }
     }
-    
-
 }

@@ -40,7 +40,7 @@ class MailSendRegistrationNumber extends Mailable
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.registration_number',
+            markdown: 'emails.registration-number',
             with: [
                 'registration-number' => $this->registration_number, 
                 'program_type' => $this->program_type, 

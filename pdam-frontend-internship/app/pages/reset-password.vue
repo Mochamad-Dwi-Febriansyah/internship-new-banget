@@ -7,17 +7,9 @@ import { object, string } from 'yup'
 const route = useRoute()
 const router = useRouter()
 const { addNotification } = useNotification()
-const { resetPassword } = useAuth()
-const showPassword = ref(false)
-const showPasswordConfirmed = ref(false)
-const loading = ref(false)
+const { resetPassword } = useAuth() 
+const loading = ref(false) 
 
-const togglePassword = () => {
-  showPassword.value = !showPassword.value
-}
-const togglePasswordConfirmed = () => {
-  showPasswordConfirmed.value = !showPasswordConfirmed.value
-}
 // Skema validasi
 
 
@@ -77,7 +69,7 @@ const onSubmitResetPassword = async (values: any) => {
         </h2>
 
         <!-- <Form @submit="handleResetPassword" :validation-schema="schema" v-slot="{ meta }"> -->
-        <Form :submit="handleSubmitResetPassword(onSubmitResetPassword)">
+        <Form @submit="onSubmitResetPassword" :validation-schema="SubmitSchemaResetPassword">
           <div class="mb-4">
             <BaseInput label="Password Baru" name="password" type="password" :errors="errors"
               placeholder="Masukkan password baru" required v-model="password" :showToggle="true" />

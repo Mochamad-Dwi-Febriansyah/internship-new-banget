@@ -281,7 +281,7 @@
                         <br>
                         <br>
                         <br>
-                            <p>#</p>
+                        <p>{{ empty($result['skip_signature']) ? '#' : '' }}</p> 
                         <br> 
                         <br> 
                         <br> 

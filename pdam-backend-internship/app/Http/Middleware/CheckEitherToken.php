@@ -35,7 +35,7 @@ class CheckEitherToken
         // Jika JWT gagal, coba validasi token sebagai SSO
         $ssoResponse = Http::withHeaders([
             'Authorization' => 'Bearer ' . $token
-        ])->get(env('SSO_SERVER_URL') . '/api/auth/me');
+        ])->get(config('services.sso.server_url') . '/api/auth/me');
     
         if ($ssoResponse->failed()) {
             return $this->errorResponse(null, 'Token is invalid (JWT/SSO)', Response::HTTP_UNAUTHORIZED);

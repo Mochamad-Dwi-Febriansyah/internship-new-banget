@@ -41,13 +41,7 @@ result.value = null
     addNotification('error', e.message);
     // console.log(e.message) 
   }
-}
-
-const statusMapping: { [key: string]: string } = {
-  pending: "Pending",
-  approved: "Approved",
-  reject: "Rejected"
-};
+} 
 </script>
 
 <template>
@@ -58,7 +52,8 @@ const statusMapping: { [key: string]: string } = {
                     <h2 class="text-3xl font-bold text-gray-800 mb-10 text-center md:text-left dark:text-white">
                         Cek Pengajuan Berkas
                     </h2>
-                    <Form :submit="handleSubmit(onSubmit)"  >
+                    <Form @submit="onSubmit" :validationSchema="SubmitSchemaCekBerkas" >
+                    <!-- <Form :submit="handleSubmit(onSubmit)"  > -->
                         <!-- No Pengajuan -->  
                         <BaseInput label="Nomor Pengajuan" name="registration_number" v-model="registrationNumberField"  :errors="errors" :errorsValBack="errorsValBack" type="text"
                             placeholder="Masukkan no pengajuan" /> 

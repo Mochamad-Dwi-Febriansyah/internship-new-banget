@@ -12,9 +12,10 @@ import * as yup from 'yup'
 import { useField, useForm } from 'vee-validate'
 import { object, string } from 'yup'
 import { toTypedSchema } from '@vee-validate/yup'
-import { formatDateID } from '~~/utils/date'
+import { FormatDate, formatDateID } from '~~/utils/date'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
+import { formatDateEN } from '../../../utils/date'
 dayjs.extend(relativeTime)
 
 const { addNotification } = useNotification()
@@ -42,6 +43,7 @@ onMounted(() => {
 const { can, permissions } = useAuth()
 const { getList, destroy, create, update, getById, loading, errorsValBack } = useUsers()
 const { exportWorkCertificate, loading: loadingApplication, errorsValBack: errorsValBackApplication } = useApplications()
+const { create: createCertificate, loading : loadingCertificate } = useCertificate()
 
 const users = ref<ApiResponse<UserListItem> | null>(null)
 
@@ -245,18 +247,128 @@ const deleteClick = async () => {
     }
 };
 
+// get assesment aspects
+const { getList : getListAssesmentAspects, destroy : destroyAssessmentAspect } = useAssessmentAspect()
+
+
+const assessmentAspect = ref<ApiResponse<AssessmentAspect> | null>(null)
+const fetchAssessmentAspects = async () =>{
+  try {
+    pending.value = true 
+
+    const result = await getListAssesmentAspects({
+        status: 'active',
+  }) 
+
+    assessmentAspect.value = result ?? null
+
+    } catch (error) {
+        console.error('Gagal mengambil data aplikasi:', error)
+    } finally {
+        pending.value = false
+    }
+}
+
 // certificate
+const zoomScaleCertificate = ref(.5)
 const showFormCertificateModal = ref(false)
-const { value: idDocumentFieldAcceptedLetter } = useField<string>('idFAL')
-const { value: userIdFieldAcceptedLetter } = useField<string>('user_idFAL')
-const { value: nameFieldAcceptedLetter } = useField<string>('name_FAL')
+const modalCertificateTitle = 'Kirim Sertifikat'
+const { value: idDocumentFieldCertificate } = useField<string>('idFC')
+const { value: userIdFieldCertificate } = useField<string>('user_idFC')
+const { value: numberFieldCertificate } = useField<string>('number_certificate_FC')
+const { value: dateIssuedFieldCertificate } = useField<string>('date_issued_FC')
+const { value: nameFieldCertificate } = useField<string>('name_FC') 
+const { value: startDateFieldCertificate } = useField<string>('start_date_FC')
+const { value: endDateFieldCertificate } = useField<string>('end_date_FC') 
+const { value: skipSignatureCertificate } = useField<string>('skip_signature_FC', 'false') 
+
+// const isSkipSignature = computed(() => skipSignatureCertificate.value === 'true')
+
+type FieldInput = {
+  id: string;
+  value: string;
+};
+const fieldsFieldCertificate = ref<FieldInput[]>([]);
+    watchEffect(() => {
+  if (assessmentAspect?.value?.data?.data) {
+    fieldsFieldCertificate.value = assessmentAspect.value.data.data.map((item: any) => ({
+      id: item.id,
+      value: ''
+    }))
+  }
+})
+
+const formPreviewCertificate = computed(() => ({
+    certificate_number: numberFieldCertificate.value,  
+    name: nameFieldCertificate.value, 
+    start_date: startDateFieldCertificate.value,
+    end_date: endDateFieldCertificate.value, 
+    now_date: dayjs().format('dddd, D MMMM YYYY')
+}))
 
 const openCertificate = async (data: any) => {
-    idDocumentFieldAcceptedLetter.value = data.id,
-    userIdFieldAcceptedLetter.value = data.user_id,
-    nameFieldAcceptedLetter.value = data.user.name  
+    // console.log(data)
+    fetchAssessmentAspects()
+    idDocumentFieldCertificate.value = data.document.id,
+    userIdFieldCertificate.value = data.id,
+    nameFieldCertificate.value = data.name  
+    startDateFieldCertificate.value  = formatDateEN(data.document.start_date)
+    endDateFieldCertificate.value = formatDateEN(data.document.end_date)
     showFormCertificateModal.value = true
 }
+
+const certificate = toTypedSchema(object({
+    // number_letter_FAL_WK: string().required('Nomor wajib diisi'),
+    // email: string().email().required('Email wajib diisi'),
+    // status: string().required('Status wajib diisi'),
+}))
+
+const { handleSubmit: handleSubmitCertificate, resetForm : resetFormCertificate, errors: errorsCertificate } = useForm({
+    validationSchema: certificate,
+})
+let pendingCertificateFormValues: any
+const submitCertificateForm = async (values: any) => {  
+    if (skipSignatureCertificate.value === 'false' && !PassphraseField.value) {
+        pendingCertificateFormValues = values
+        showFormPassphraseModal.value = true
+        return
+    }
+    // console.log(fieldsFieldCertificate.value)
+    const formData = new FormData() 
+    formData.append('passphrase', String(PassphraseField.value))
+    formData.append('certificate_number', numberFieldCertificate.value)  
+    formData.append('document_id', idDocumentFieldCertificate.value)  
+    formData.append('user_id', userIdFieldCertificate.value)  
+    formData.append('skip_signature', skipSignatureCertificate.value);
+ 
+    fieldsFieldCertificate.value.forEach((field, index) => {
+        if (field.value) {
+            formData.append(`fields[${index}][assessment_aspects_id]`, field.id);
+            formData.append(`fields[${index}][score]`, field.value);
+        }
+    });
+
+    
+    // console.log(numberFieldCertificate.value)  
+    // for (const pair of formData.entries()) {
+    //     console.log(`${pair[0]}:`, pair[1]);
+    // }
+    try {
+        const response = await createCertificate(formData)
+
+        addNotification('success', response.message)
+        // TODO: Kirim formData ke API di sini
+        showFormCertificateModal.value = false
+        await fetchUsers()
+    } catch (error: any) {
+        addNotification('error', error.message)
+        // console.error('Submit error:', error)
+    }
+}
+
+
+
+ 
 
 // work certificate
 const zoomScale = ref(.6)
@@ -292,6 +404,7 @@ const { value: universityFacultyFieldWorkCertificate } = useField<string>('unive
 const { value: universityProgramStudyFieldWorkCertificate } = useField<string>('university_program_study_FAL_WK')
 const { value: startDateFieldWorkCertificate } = useField<string>('start_date_FAL_WK')
 const { value: endDateFieldWorkCertificate } = useField<string>('end_date_FAL_WK') 
+const { value: skipSignatureWorkCertificate } = useField<string>('skip_signature_FAL_WK', 'false') 
 
 
 const openWorkCertificate = async (data: any) => {
@@ -326,11 +439,11 @@ const submitWorkCertificateForm = async (values: any) => {
         pendingWorkCertificateFormValues = values
         showFormPassphraseModal.value = true
         return
-    }
-
+    } 
     const formData = new FormData()
     formData.append('passphrase', String(PassphraseField.value))
     formData.append('number_letter', numberLetterFieldWorkCertificate.value)  
+        formData.append('skip_signature', skipSignatureWorkCertificate.value);
  
     // // Object.entries(values).forEach(([key, val]) => {
     // //     if (val !== null && val !== undefined) {
@@ -355,6 +468,11 @@ const continueWorkCertificateSubmission = () => {
     if (pendingWorkCertificateFormValues) {
         submitWorkCertificateForm(pendingWorkCertificateFormValues)
         pendingWorkCertificateFormValues = null
+        showFormPassphraseModal.value = false
+    }
+    if (pendingCertificateFormValues) {
+        submitCertificateForm(pendingCertificateFormValues)
+        pendingCertificateFormValues = null
         showFormPassphraseModal.value = false
     }
 }
@@ -524,7 +642,7 @@ const continueWorkCertificateSubmission = () => {
                         </div>
                     </BaseModal>
 
-                                    <!-- surat keterangan -->
+                   <!-- surat keterangan -->
                 <BaseModal v-model="showWorkFormCertificateModal" :title="modalWorkCertificateTitle" size="lg">
                     <div class="flex flex-col md:flex-row gap-4 max-h-[calc(100vh-116px)] items-start">
                         <Form :submit="handleSubmitWorkCertificate(submitWorkCertificateForm)"
@@ -534,6 +652,36 @@ const continueWorkCertificateSubmission = () => {
 
                                 <BaseInput label="Nomor Surat" name="number_letter_FAL_WK" type="text"
                                     v-model="numberLetterFieldWorkCertificate" :errors="errorsWorkCertificate" /> 
+
+                                    <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                        Lewati Tanda Tangan?
+                                    </label>
+                                    
+                                    <div class="flex items-center gap-4">
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FAL_WK"
+                                            value="true"
+                                            class="mr-2"
+                                            v-model="skipSignatureWorkCertificate"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Ya</span>
+                                        </label>
+
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FAL_WK"
+                                            value="false"
+                                            class="mr-2"
+                                                v-model="skipSignatureWorkCertificate"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Tidak</span>
+                                        </label>
+                                    </div>
+                                    </div>
 
                                 <BaseInput label="Nama" name="name_FAL_WK" type="text" v-model="nameFieldWorkCertificate"
                                     :disabled="true" required :errors="errorsWorkCertificate" :errorsValBack="errorsValBack" />
@@ -574,7 +722,84 @@ const continueWorkCertificateSubmission = () => {
                                 :formattedTanggalKepada="startDateFieldWorkCertificate" :scale="zoomScale" />
                         </div>
                     </div>
+                </BaseModal> 
+
+
+                <!-- sertifikat -->
+                <BaseModal v-model="showFormCertificateModal" :title="modalCertificateTitle" size="lg">
+                    <div class="flex flex-col md:flex-row gap-4 max-h-[calc(100vh-116px)] items-start">
+                        <Form :submit="handleSubmitCertificate(submitCertificateForm)"
+                            class="w-full  md:w-1/3 max-h-[calc(100vh-110px)] overflow-y-auto scrollbar-hide"> 
+                            <BaseInput name="user_idFC" type="hidden" v-model="userIdFieldCertificate" />
+                            <div class="grid gap-6 mb-6 md:grid-cols-1 dark:text-gray-900">
+
+                                <BaseInput label="Nomor Sertifikat" name="number_certificate_FC" type="text"
+                                    v-model="numberFieldCertificate" :errors="errorsCertificate" /> 
+                                    <!-- :name="`fields_FC[${index}]`" -->
+                                  <div v-for="(field, index) in fieldsFieldCertificate">
+                                    <label :for="`field-${index}`" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ assessmentAspect?.data.data[index]?.name_field }}
+                                    </label>
+                                        <Field v-if="fieldsFieldCertificate[index]"
+                                            type="number"
+                                         :name="`fieldsFieldCertificate[${index}].value`"
+                                            :id="`field-${index}`"
+                                            class="block w-full p-2.5 border text-sm rounded-lg border-gray-300  dark:bg-gray-600 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+                                                 v-model="fieldsFieldCertificate[index].value"
+                                        />
+                                    </div>
+
+                                    <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                                        Lewati Tanda Tangan?
+                                    </label>
+                                    
+                                    <div class="flex items-center gap-4">
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FC"
+                                            value="true"
+                                            class="mr-2"
+                                            v-model="skipSignatureCertificate"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Ya</span>
+                                        </label>
+
+                                        <label class="inline-flex items-center">
+                                        <Field
+                                            type="radio"
+                                            name="skip_signature_FC"
+                                            value="false"
+                                            class="mr-2"
+                                                v-model="skipSignatureCertificate"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-white">Tidak</span>
+                                        </label>
+                                    </div>
+                                    </div>
+
+
+
+                            </div>
+                            <div class="flex justify-end gap-2 w-full">
+                                <Button type="button" variant="red" @click="showFormCertificateModal = false">
+                                    Batal
+                                </Button>
+                                <Button type="submit" :disabled="loadingCertificate">
+                                    <Icon v-if="loadingCertificate" name="codex:loader" class="text-xl align-middle" />
+                                    <span v-else>Kirim</span>
+                                </Button>
+                            </div>
+                        </Form>
+                        <div class="w-full md:w-2/3 max-h-[calc(100vh-110px)] overflow-y-auto scrollbar-hide">
+                            <PreviewLetterCertificate :form="formPreviewCertificate"
+                                :formattedTanggalKepada="dateIssuedFieldCertificate" :scale="zoomScaleCertificate" />
+                        </div>
+                        </div>
                 </BaseModal>
+
+
 
                     <!-- pashprhase -->
                     <BaseModal v-model="showFormPassphraseModal" :title="modalPassphraseTitle">

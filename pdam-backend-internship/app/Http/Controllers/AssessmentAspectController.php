@@ -20,6 +20,10 @@ class AssessmentAspectController extends Controller
     {
         $query = AssessmentAspect::query();
  
+        if ($request->has('status')) {
+            $query->where('status', $request->get('status'));
+        }
+
         $sortBy = $request->get('sort_by', 'created_at'); // default sorting by created_at
         $sortOrder = $request->get('sort_order', 'desc'); // default order desc
     
